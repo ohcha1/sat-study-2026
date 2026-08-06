@@ -18,6 +18,21 @@ Exit criteria: met. Existing features behave identically for well-formed input; 
 
 Verification method: this project has no automated test framework, so each task was verified with a throwaway jsdom-based script (loading `index.html`, running scripts, exercising the changed function, and asserting on DOM/state output), plus a final combined regression sweep re-running all of Milestone 1's checks together before the last commit. Scripts were scratch files, not checked into the repo.
 
+### Milestone 1 follow-up inspection — ✅ Completed 2026-08-06
+
+A full feature-by-feature inspection was run after the items above shipped (all 8 result tabs across five passage types, save/load/search/delete, quiz grading, recording graceful-failure paths). No feature regressions found. The inspection did surface four additional defects not caught by the original fixes; the two Critical and two High findings were fixed immediately per instruction, each in its own commit. Medium/Low findings were logged, not fixed:
+
+- [x] **Critical — XSS in SAT tab.** `sat()` rendered `q.type`, `q.q`, each choice, and `q.why` via `innerHTML` unescaped. Several of these are built from the user's own passage sentences (`makeQuestions()`'s `first`/`second`/`third`/`last`), so a passage containing literal HTML could inject and execute it — confirmed with a live `<img>` element via jsdom, reachable through normal paste-a-passage usage, no adversarial input needed. — commit `c629c9d`
+- [x] **Critical — XSS in Grammar tab.** `grammarInsights()` embedded raw regex-captured substrings from the sentence (e.g. the relative-clause match, which captures everything from "who/which/that" to the next comma/semicolon/dash) directly into the notes alongside intentional `<b>` tags, unescaped. Confirmed the same way. Fixed by escaping each capture at its interpolation point while preserving the surrounding `<b>` formatting. — commit `22d16a3`
+- [x] **High — corrupted localStorage broke the entire saved-materials feature.** `saveCurrent()`, `renderSaved()`, `loadSaved()`, and `deleteSaved()` all did a bare `JSON.parse()` with no error handling; corrupted storage crashed all four with no user-facing message and no recovery path. Added `getSavedList()`, a resilient read helper that falls back to an empty list (existing empty-state UI already covers this) instead of throwing. — commit `7bca51b`
+- [x] **High — silent data loss from `Date.now()` id collisions.** Two `saveCurrent()` calls fired back-to-back could get the identical millisecond-resolution id; `deleteSaved()`'s `filter(x=>x.id!==id)` would then delete both at once. Confirmed empirically (2 rapid saves reliably collided). Fixed by incrementing the id until it's unique against the current saved list. — commit `dfd7397`
+
+**Logged, not fixed (Medium/Low, per instruction to fix only Critical/High):**
+- No error handling around `localStorage.setItem` for quota-exceeded on save (plausible after heavy long-term use; distinct from the corrupted-*read* issue fixed above, which only covered `JSON.parse` on existing data).
+- A latent design flaw in `examples()`'s duplicate-avoidance `while` loop (if a collision ever recurred, the retry logic wouldn't change on subsequent iterations) — stress-tested with duplicate/adversarial vocab inputs and could not find a path to actually trigger it, since the first-attempt template index is 1:1 with the map index for realistic list sizes. Not reachable in practice, so not actionable now.
+- Per-sentence translation API burst / no batching — already explicitly in Milestone 2's scope below, not new.
+- The sentence splitter's naive period-handling (surfaced incidentally while constructing an XSS test payload) and the two hardcoded grammar special-cases for the sample passage — both pre-existing, already tracked under Milestone 5.
+
 ## Milestone 2 — Translation Reliability
 
 Goal: make the translation feature behave predictably for passages beyond the built-in sample.
