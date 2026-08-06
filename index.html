@@ -416,10 +416,10 @@ function overview(a){return `<div class="summary-grid">
  <div class="stat c-purple"><strong>${a.phrases.length}</strong><span>숙어·구문</span></div>
  <div class="stat c-yellow"><strong>${a.questions.length}</strong><span>SAT 문제</span></div></div>
  <div class="card c-mint"><h3>학습 흐름</h3>전체 해석 → 학년별 단어 → 숙어·문법 → 예문·ESL → SAT 문제 풀이</div>
- <div class="card"><h3>지문 미리보기</h3><div class="en">${a.text}</div></div>
+ <div class="card"><h3>지문 미리보기</h3><div class="en">${escapeHtml(a.text)}</div></div>
  <div class="card c-blue"><h3>추천 학습 방법</h3><div class="ko">먼저 번역을 가리고 지문을 읽은 뒤, 단어와 구문을 확인하고 마지막에 SAT 문제를 풀어 보세요.</div></div>`}
-function translation(a){return `<div class="card c-blue translation-card"><h3>문장별 영어·한국어 해석</h3>${a.translations.map(x=>`<div class="sentence"><div class="en">${x.en}</div><div class="ko">(${x.ko})</div></div>`).join("")}</div>
-<div class="card"><h3>자연스러운 전체 해석</h3><div class="ko">${a.translations.map(x=>x.ko).join(" ")}</div></div>`}
+function translation(a){return `<div class="card c-blue translation-card"><h3>문장별 영어·한국어 해석</h3>${a.translations.map(x=>`<div class="sentence"><div class="en">${escapeHtml(x.en)}</div><div class="ko">(${escapeHtml(x.ko)})</div></div>`).join("")}</div>
+<div class="card"><h3>자연스러운 전체 해석</h3><div class="ko">${escapeHtml(a.translations.map(x=>x.ko).join(" "))}</div></div>`}
 function dictionaryLinks(word){
  const w=encodeURIComponent(word);
  return `<div class="source-row"><span class="small" style="align-self:center">사전 확인:</span>
@@ -662,7 +662,7 @@ function closeSaved(){document.getElementById("drawer").classList.remove("open")
 function renderSaved(){
  const q=(document.getElementById("searchSaved").value||"").toLowerCase();
  const list=JSON.parse(localStorage.getItem("satStudioSaved")||"[]").filter(x=>(x.title+" "+x.text).toLowerCase().includes(q));
- document.getElementById("savedList").innerHTML=list.length?list.map(x=>`<div class="saved-item"><h4>${x.title}</h4><div class="saved-meta">${x.grade} · ${x.date} · 어휘 ${x.vocab.length}개 · 문제 ${x.questions.length}개</div><button class="btn btn-soft" onclick="loadSaved(${x.id})">열기</button> <button class="btn btn-danger" onclick="deleteSaved(${x.id})">삭제</button></div>`).join(""):"<div class='empty' style='height:240px'>저장된 자료가 없습니다.</div>";
+ document.getElementById("savedList").innerHTML=list.length?list.map(x=>`<div class="saved-item"><h4>${escapeHtml(x.title)}</h4><div class="saved-meta">${escapeHtml(x.grade)} · ${escapeHtml(x.date)} · 어휘 ${x.vocab.length}개 · 문제 ${x.questions.length}개</div><button class="btn btn-soft" onclick="loadSaved(${x.id})">열기</button> <button class="btn btn-danger" onclick="deleteSaved(${x.id})">삭제</button></div>`).join(""):"<div class='empty' style='height:240px'>저장된 자료가 없습니다.</div>";
 }
 function loadSaved(id){
  const list=JSON.parse(localStorage.getItem("satStudioSaved")||"[]"),x=list.find(v=>v.id===id);if(!x)return;
