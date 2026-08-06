@@ -673,9 +673,20 @@ function evaluatePronunciation(target){
 function sat(a){return `<div class="card c-pink"><h3>SAT Practice · ${a.questions.length}문제</h3>중급~고급 수준의 중심 생각, 추론, 문장 기능, 근거, 어휘 문맥, 표현의 정확성 문제입니다.<div class="sat-warning">문제·선택지·해설은 영어로만 생성되도록 검증합니다.</div></div>${a.questions.map((q,i)=>`<div class="question" id="q${i}"><div class="small" style="font-weight:900;color:#6D4C7D;margin-bottom:7px">${escapeHtml(q.type||"SAT Reading and Writing")}</div><b>${i+1}. ${escapeHtml(q.q)}</b>${q.choices.map((c,j)=>`<label class="choice"><input type="radio" name="q${i}" value="${j}"> ${String.fromCharCode(65+j)}. ${escapeHtml(c)}</label>`).join("")}<div class="explanation" id="exp${i}"><b>Explanation:</b> ${escapeHtml(q.why)}</div></div>`).join("")}<button class="btn btn-primary" onclick="gradeQuiz()">채점하기</button>`}
 function gradeQuiz(){let score=0;state.analysis.questions.forEach((q,i)=>{const picked=document.querySelector(`input[name=q${i}]:checked`);document.querySelectorAll(`#q${i} .choice`).forEach((el,j)=>{el.classList.remove("correct","wrong");if(j===q.ans)el.classList.add("correct");if(picked&&Number(picked.value)===j&&j!==q.ans)el.classList.add("wrong")});if(picked&&Number(picked.value)===q.ans)score++;document.getElementById(`exp${i}`).style.display="block"});toast(`점수: ${score} / ${state.analysis.questions.length}`)}
 
+function getSavedList(){
+ try{
+   const raw=localStorage.getItem("satStudioSaved");
+   if(!raw)return[];
+   const parsed=JSON.parse(raw);
+   return Array.isArray(parsed)?parsed:[];
+ }catch(e){
+   console.warn("저장된 학습자료 데이터를 읽지 못했습니다. 데이터가 손상되었을 수 있어 빈 목록으로 표시합니다.",e);
+   return[];
+ }
+}
 function saveCurrent(){
  if(!state.analysis){toast("먼저 지문을 분석해 주세요.");return}
- const list=JSON.parse(localStorage.getItem("satStudioSaved")||"[]");
+ const list=getSavedList();
  const item={...state.analysis,id:Date.now()};
  list.unshift(item);localStorage.setItem("satStudioSaved",JSON.stringify(list));toast("학습자료를 저장했습니다.");
 }
@@ -683,15 +694,15 @@ function openSaved(){document.getElementById("drawer").classList.add("open");doc
 function closeSaved(){document.getElementById("drawer").classList.remove("open");document.getElementById("overlay").classList.remove("show")}
 function renderSaved(){
  const q=(document.getElementById("searchSaved").value||"").toLowerCase();
- const list=JSON.parse(localStorage.getItem("satStudioSaved")||"[]").filter(x=>(x.title+" "+x.text).toLowerCase().includes(q));
+ const list=getSavedList().filter(x=>(x.title+" "+x.text).toLowerCase().includes(q));
  document.getElementById("savedList").innerHTML=list.length?list.map(x=>`<div class="saved-item"><h4>${escapeHtml(x.title)}</h4><div class="saved-meta">${escapeHtml(x.grade)} · ${escapeHtml(x.date)} · 어휘 ${x.vocab.length}개 · 문제 ${x.questions.length}개</div><button class="btn btn-soft" onclick="loadSaved(${x.id})">열기</button> <button class="btn btn-danger" onclick="deleteSaved(${x.id})">삭제</button></div>`).join(""):"<div class='empty' style='height:240px'>저장된 자료가 없습니다.</div>";
 }
 function loadSaved(id){
- const list=JSON.parse(localStorage.getItem("satStudioSaved")||"[]"),x=list.find(v=>v.id===id);if(!x)return;
+ const list=getSavedList(),x=list.find(v=>v.id===id);if(!x)return;
  state.analysis=x;document.getElementById("title").value=x.title;document.getElementById("passage").value=x.text;document.getElementById("grade").value=x.grade;document.getElementById("analysisTitle").textContent=x.title;closeSaved();render();toast("저장된 학습자료를 열었습니다.");
 }
 function deleteSaved(id){
- let list=JSON.parse(localStorage.getItem("satStudioSaved")||"[]");
+ let list=getSavedList();
  const item=list.find(x=>x.id===id);
  const label=item?item.title||"제목 없는 학습자료":"이 학습자료";
  if(!confirm(`"${label}"를(을) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`))return;
