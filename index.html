@@ -687,7 +687,9 @@ function getSavedList(){
 function saveCurrent(){
  if(!state.analysis){toast("먼저 지문을 분석해 주세요.");return}
  const list=getSavedList();
- const item={...state.analysis,id:Date.now()};
+ let id=Date.now();
+ while(list.some(x=>x.id===id))id++;
+ const item={...state.analysis,id};
  list.unshift(item);localStorage.setItem("satStudioSaved",JSON.stringify(list));toast("학습자료를 저장했습니다.");
 }
 function openSaved(){document.getElementById("drawer").classList.add("open");document.getElementById("overlay").classList.add("show");renderSaved()}
