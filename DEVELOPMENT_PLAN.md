@@ -2,18 +2,21 @@
 
 This plan sequences the work identified in the initial project review into eight milestones. Each milestone is scoped to be independently shippable and testable before moving to the next. No feature behavior should change outside of a milestone's stated scope.
 
-## Milestone 1 — Bug Fixes Only
+## Milestone 1 — Bug Fixes Only — ✅ Completed 2026-08-06
 
 Goal: fix defects in existing behavior without adding or redesigning features.
 
-- Escape all user- and API-controlled content before inserting it via `innerHTML` (passage preview in `overview()`, sentence translations in `translation()`, saved item titles/text in `renderSaved()`) to close the DOM-based XSS holes.
-- Randomize the correct-answer position in `makeQuestions()` instead of always placing it at index 0 (index 1 for Transitions), so the SAT practice questions can't be gamed by pattern.
-- Wire up the "분석 난이도" (difficulty) selector or remove it — it is currently read from the DOM but never used.
-- Add a confirmation step before "새 지문" (New Passage) discards unsaved input.
-- Add a confirmation step before "삭제" (delete) permanently removes a saved study set.
-- Disable the "지문 분석하기" button while `analyze()` is in flight to prevent duplicate/overlapping submissions.
+- [x] Escape all user- and API-controlled content before inserting it via `innerHTML` (passage preview in `overview()`, sentence translations in `translation()`, saved item titles/text in `renderSaved()`) to close the DOM-based XSS holes. — commit `7e862e6`
+- [x] Randomize the correct-answer position in `makeQuestions()` instead of always placing it at index 0 (index 1 for Transitions), so the SAT practice questions can't be gamed by pattern. — commit `c3b7f07`
+- [x] **(Discovered during verification of the above, not originally scoped)** Fix `englishOnly()` root cause: a `>=12` Latin-letter minimum silently discarded valid short English choices — e.g. all four real Transitions choices ("For example,", "In contrast,", "Therefore,", "Similarly,") and the short-synonym Precision choices — and replaced them with generic filler text, independent of the answer-shuffle change. Fixed by rejecting on any Hangul presence (was: strip-then-count, which let mixed-language fragments through) and lowering the minimum to `>=3` Latin letters, low enough for short valid words but still rejecting empty/symbol/numeric/Korean content. — commit `c86383c`
+- [x] Left the "분석 난이도" (difficulty) selector in place and functionally unchanged per explicit decision — it remains a documented no-op (see TODO comment in `index.html`) rather than being wired up or removed, deferred to Milestone 3 where it will drive real vocabulary/question difficulty. — commit `5e49b0c`
+- [x] Add a confirmation step before "새 지문" (New Passage) discards unsaved input. Only prompts when there's actually something to lose (non-empty title/passage or an existing analysis). — commit `d37306d`
+- [x] Add a confirmation step before "삭제" (delete) permanently removes a saved study set, naming the item's title in the prompt. — commit `2db26eb`
+- [x] Disable the "지문 분석하기" button while `analyze()` is in flight to prevent duplicate/overlapping submissions, re-enabling via `finally` so it can't get stuck disabled on error. — commit `b37795c`
 
-Exit criteria: existing features behave identically, except the bugs above no longer reproduce. No new features introduced.
+Exit criteria: met. Existing features behave identically for well-formed input; the bugs above no longer reproduce. No new features introduced, no UI redesign.
+
+Verification method: this project has no automated test framework, so each task was verified with a throwaway jsdom-based script (loading `index.html`, running scripts, exercising the changed function, and asserting on DOM/state output), plus a final combined regression sweep re-running all of Milestone 1's checks together before the last commit. Scripts were scratch files, not checked into the repo.
 
 ## Milestone 2 — Translation Reliability
 
