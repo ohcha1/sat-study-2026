@@ -107,6 +107,11 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:18px}
         <div class="field"><label>학습자료 제목</label><input id="title" class="input" placeholder="예: The Role of Sleep in Memory"></div>
         <div class="settings-grid">
           <div class="field"><label>학생 학년</label><select id="grade"><option>9학년</option><option>10학년</option><option selected>11학년</option><option>12학년</option></select></div>
+          <!-- TODO(Milestone 3 — Dictionary Upgrade): #difficulty is currently read nowhere in analyze()
+               or any render function; selecting it has no effect on output. It is intentionally left
+               as a visible-but-inert control for Milestone 1 (bug fixes only / no redesign). It should
+               become a real input to vocabulary leveling and question difficulty once the dictionary
+               upgrade lands. See DEVELOPMENT_PLAN.md, Milestone 3. -->
           <div class="field"><label>분석 난이도</label><select id="difficulty"><option>기본</option><option selected>중급</option><option>고급</option></select></div>
           <div class="field"><label>SAT 문제 수</label><select id="qcount"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option selected>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></div>
         </div>
