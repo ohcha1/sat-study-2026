@@ -366,9 +366,12 @@ async function analyze(){
  render(); toast("지문 분석이 완료되었습니다.");
 }
 function englishOnly(s,fallback="The passage provides relevant evidence for its central claim."){
- const cleaned=String(s||"").replace(/[가-힣ㄱ-ㅎㅏ-ㅣ]/g,"").replace(/\s+/g," ").trim();
+ const raw=String(s||"").trim();
+ if(!raw) return fallback;
+ if(/[가-힣ㄱ-ㅎㅏ-ㅣ]/.test(raw)) return fallback;
+ const cleaned=raw.replace(/\s+/g," ").trim();
  const latin=(cleaned.match(/[A-Za-z]/g)||[]).length;
- return latin>=12?cleaned:fallback;
+ return latin>=3?cleaned:fallback;
 }
 function shuffleChoices(q){
  const order=q.choices.map((_,i)=>i);
