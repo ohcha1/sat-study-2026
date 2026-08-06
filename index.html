@@ -685,7 +685,13 @@ function loadSaved(id){
  state.analysis=x;document.getElementById("title").value=x.title;document.getElementById("passage").value=x.text;document.getElementById("grade").value=x.grade;document.getElementById("analysisTitle").textContent=x.title;closeSaved();render();toast("저장된 학습자료를 열었습니다.");
 }
 function deleteSaved(id){let list=JSON.parse(localStorage.getItem("satStudioSaved")||"[]");list=list.filter(x=>x.id!==id);localStorage.setItem("satStudioSaved",JSON.stringify(list));renderSaved()}
-function newPassage(){document.getElementById("title").value="";document.getElementById("passage").value="";state.analysis=null;document.getElementById("analysisTitle").textContent="아직 분석하지 않았습니다";render()}
+function newPassage(){
+ const titleVal=document.getElementById("title").value.trim();
+ const passageVal=document.getElementById("passage").value.trim();
+ const hasUnsavedContent=Boolean(titleVal||passageVal||state.analysis);
+ if(hasUnsavedContent&&!confirm("저장하지 않은 제목·지문·분석 결과가 모두 사라집니다. 새 지문을 시작하시겠습니까?"))return;
+ document.getElementById("title").value="";document.getElementById("passage").value="";state.analysis=null;document.getElementById("analysisTitle").textContent="아직 분석하지 않았습니다";render()
+}
 function loadSample(){
  document.getElementById("title").value="The Role of Sleep in Memory";
  document.getElementById("passage").value="Many researchers have questioned the traditional explanation of how memory works. Recent studies demonstrate that sleep may play a significant role in helping students retain new information. In one experiment, students who slept after studying performed better than those who remained awake. Consequently, researchers concluded that sleep can influence cognitive performance. In contrast, stress and poor sleep habits may account for weaker results.";
