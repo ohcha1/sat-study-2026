@@ -370,6 +370,14 @@ function englishOnly(s,fallback="The passage provides relevant evidence for its 
  const latin=(cleaned.match(/[A-Za-z]/g)||[]).length;
  return latin>=12?cleaned:fallback;
 }
+function shuffleChoices(q){
+ const order=q.choices.map((_,i)=>i);
+ for(let i=order.length-1;i>0;i--){
+   const j=Math.floor(Math.random()*(i+1));
+   [order[i],order[j]]=[order[j],order[i]];
+ }
+ return {...q,choices:order.map(i=>q.choices[i]),ans:order.indexOf(q.ans)};
+}
 function makeQuestions(text,sents,vocab,n){
  const first=englishOnly(sents[0]||text);
  const second=englishOnly(sents[1]||sents[0]||text);
@@ -396,7 +404,7 @@ function makeQuestions(text,sents,vocab,n){
    q:englishOnly(q.q,"Which choice best answers the question about the passage?"),
    choices:q.choices.map((c,i)=>englishOnly(c,["The passage supports this interpretation.","The passage does not support this interpretation.","This choice introduces an unrelated claim.","This choice misrepresents the passage."][i])),
    why:englishOnly(q.why,"The correct answer is the choice most directly supported by the passage.")
- }));
+ })).map(shuffleChoices);
 }
 function render(){
  const r=document.getElementById("result"),a=state.analysis;
