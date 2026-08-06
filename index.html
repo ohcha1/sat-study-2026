@@ -684,7 +684,13 @@ function loadSaved(id){
  const list=JSON.parse(localStorage.getItem("satStudioSaved")||"[]"),x=list.find(v=>v.id===id);if(!x)return;
  state.analysis=x;document.getElementById("title").value=x.title;document.getElementById("passage").value=x.text;document.getElementById("grade").value=x.grade;document.getElementById("analysisTitle").textContent=x.title;closeSaved();render();toast("저장된 학습자료를 열었습니다.");
 }
-function deleteSaved(id){let list=JSON.parse(localStorage.getItem("satStudioSaved")||"[]");list=list.filter(x=>x.id!==id);localStorage.setItem("satStudioSaved",JSON.stringify(list));renderSaved()}
+function deleteSaved(id){
+ let list=JSON.parse(localStorage.getItem("satStudioSaved")||"[]");
+ const item=list.find(x=>x.id===id);
+ const label=item?item.title||"제목 없는 학습자료":"이 학습자료";
+ if(!confirm(`"${label}"를(을) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`))return;
+ list=list.filter(x=>x.id!==id);localStorage.setItem("satStudioSaved",JSON.stringify(list));renderSaved()
+}
 function newPassage(){
  const titleVal=document.getElementById("title").value.trim();
  const passageVal=document.getElementById("passage").value.trim();
