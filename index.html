@@ -117,7 +117,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:18px}
         </div>
         <div class="field"><label>영어 지문</label><textarea id="passage" placeholder="영어 지문을 여기에 붙여 넣으세요."></textarea></div>
         <div class="input-actions">
-          <button class="btn btn-primary" onclick="analyze()">지문 분석하기</button>
+          <button class="btn btn-primary" id="analyzeBtn" onclick="analyze()">지문 분석하기</button>
           <button class="btn btn-soft" onclick="saveCurrent()">학습자료 저장</button>
         </div>
       </div>
@@ -343,6 +343,9 @@ function levelFor(w){
 async function analyze(){
  const text=document.getElementById("passage").value.trim();
  if(!text){toast("영어 지문을 입력해 주세요.");return}
+ const analyzeBtn=document.getElementById("analyzeBtn");
+ if(analyzeBtn)analyzeBtn.disabled=true;
+ try{
  const sents=splitSentences(text), unique=[...new Set(words(text))];
  let vocab=unique.filter(w=>dictionary[w]).map(w=>({word:w,data:dictionary[w],level:levelFor(w)}));
  if(vocab.length<12){
@@ -369,6 +372,9 @@ async function analyze(){
  state.active="overview";
  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.tab==="overview"));
  render(); toast("지문 분석이 완료되었습니다.");
+ } finally {
+   if(analyzeBtn)analyzeBtn.disabled=false;
+ }
 }
 function englishOnly(s,fallback="The passage provides relevant evidence for its central claim."){
  const raw=String(s||"").trim();
