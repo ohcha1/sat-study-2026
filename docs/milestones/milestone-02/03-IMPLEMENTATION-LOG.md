@@ -96,8 +96,105 @@ commit per logical task, stopping for CEO approval after each task per explicit 
 - **Explicit stop point:** Awaiting operator/CEO approval to proceed to Dev Task 2. No further code
   changes until that approval is given.
 
+### Session: 2026-08-06 — Dev Task 2: simpleTranslate() structured return
+
+- **Scope addressed:** `02-ARCHITECTURE.md` §8 row 2 ("`simpleTranslate(s)` (lines 316–320)") and
+  §6's contract requirement. This is the second of the 8 tasks in §8's Developer task order.
+  QA passed Dev Task 1 first (see `04-QA-REPORT.md`, QA pass 2026-08-06).
+- **What was implemented:** `simpleTranslate(s)` now returns `{ko, matched}` instead of a bare
+  string — `ko` is the substitution result (`out`), `matched` is `out!==s`. The phrase-map array
+  and substitution loop are byte-for-byte unchanged, per the architecture's "logic otherwise
+  unchanged" instruction. The old fragile `out===s ? placeholder : out` string-sniff is gone from
+  `simpleTranslate` entirely.
+- **Necessary adaptation (not a scope expansion into Task 3):** `translateSentence(s)` — the one
+  remaining caller of `simpleTranslate()` — still needs to return a plain string, since it is not
+  replaced by `translateSentenceReliable()` until Dev Task 3 (§8 row 3). Changing
+  `simpleTranslate`'s return shape without touching this call site would have broken
+  `translateSentence` (and, downstream, `analyze()`'s rendered `ko` values) immediately, which
+  `.ai-company/GIT_RULES.md` rule 1 ("every commit ... should leave the application in a working
+  state") does not permit. The one-line fix: `translateSentence`'s fallback now reads
+  `const r=simpleTranslate(s);return r.matched?r.ko:"<same placeholder text as before>"` —
+  reproducing, byte-for-byte, the exact string `translateSentence` already returned in this case
+  before this task. This is the minimal mechanical consequence of Task 2's own interface change,
+  not an implementation of Task 3's `translateSentenceReliable`/cache/retry/fallback-chain logic,
+  which remains entirely unstarted. A `TODO(Milestone 2, Dev Task 3)` comment marks this bridge in
+  the code for removal when Task 3 lands. Flagging this explicitly per `.ai-company/DEVELOPER.md`
+  ("if you hit a case the architecture doesn't cover, stop and flag it") — the architecture already
+  describes both sides of this exact interface (§6 and §8 row 3), it's only the sequencing/bridging
+  detail between Task 2 and Task 3 that isn't spelled out verbatim.
+- **Files changed:** `index.html` (14 lines added, 3 removed; no line outside `simpleTranslate`'s
+  body and `translateSentence`'s single return-fallback statement touched).
+- **Commits:**
+  - `313757b` — "Refactor: simpleTranslate() returns structured {ko, matched} instead of a bare
+    string"
+- **Tests performed (per `.ai-company/TESTING_STANDARDS.md`):** Independently authored throwaway
+  jsdom script (not committed, per standard) loading the actual `index.html` and asserting on
+  runtime behavior:
+  - `simpleTranslate` returns an object; `matched===true` and `ko` contains the substituted Korean
+    text when a phrase-map entry applies; `matched===false` and `ko` equals the original,
+    unmodified input text when nothing applies (confirms the placeholder string no longer lives
+    inside `simpleTranslate`).
+  - Substitution logic unchanged: multiple map entries still apply correctly in a single call.
+  - `translateSentence` still returns a plain string in all three cases: MyMemory success (string
+    passed through untouched), MyMemory failure + phrase-map match (returns the Korean
+    substitution), MyMemory failure + no phrase-map match (returns the exact legacy placeholder
+    string, verified by string equality against the original literal).
+  - Regression: Dev Task 1's scaffolding (`CONCURRENCY_LIMIT`, `translationCache`,
+    `runWithConcurrency`) untouched; `splitSentences` and `analyze` still defined/unchanged;
+    `state.active` still initializes to `"overview"`.
+  - **Result: all 17 assertions passed.**
+- **Deviations from architecture:** None to the specified change itself (`simpleTranslate`'s
+  return shape and unchanged substitution logic match §8 row 2 exactly). The one necessary
+  addition — the one-line adapter in `translateSentence` — is documented above and is not a
+  deviation from what's approved, since both `simpleTranslate`'s new contract (§6) and
+  `translateSentence`'s planned replacement (§8 row 3) are already part of the approved
+  `02-ARCHITECTURE.md`; only the transitional bridge between the two tasks required a judgment
+  call, which is recorded here rather than made silently.
+- **Working tree note:** `docs/milestones/milestone-02/01-PM-SPEC.md` and `02-ARCHITECTURE.md`
+  still carry the same pre-existing uncommitted changes noted in the Dev Task 1 entry above; left
+  untouched again this session for the same reason (role separation — not this role's documents to
+  commit). `04-QA-REPORT.md` also has uncommitted content from the QA pass on Dev Task 1; likewise
+  untouched.
+- **Operational note:** the same stale `.git/index.lock` behavior seen in the Dev Task 1 session
+  recurred at the start of this session (present before any action this session took); resolved the
+  same way (file-deletion permission requested and granted for the workspace folder) before
+  `git add`/`git commit`.
+- **Handoff:** Per explicit instruction, this session stops after Task 2 for QA. See
+  `.ai-company/HANDOFF_PROTOCOL.md` fields below.
+
+## Handoff — Milestone 2, Dev Task 2
+
+- **Milestone:** Milestone 2 — Translation Reliability
+- **Source documents read:** `CLAUDE.md`, `.ai-company/WORKFLOW.md`, `.ai-company/DEVELOPER.md`
+  (all re-read this session per operator instruction), plus (carried from context established
+  earlier this milestone and re-confirmed) `.ai-company/CODING_STANDARDS.md`,
+  `.ai-company/GIT_RULES.md`, `.ai-company/TESTING_STANDARDS.md`,
+  `docs/milestones/milestone-02/01-PM-SPEC.md` (Status: APPROVED),
+  `docs/milestones/milestone-02/02-ARCHITECTURE.md` (Status: APPROVED — §6 and §8 row 2/row 3
+  specifically re-read before editing), `docs/milestones/milestone-02/04-QA-REPORT.md` (confirmed
+  Dev Task 1 QA pass: PASS, no unresolved Critical/High defects), and the current `index.html`
+  (re-read lines 330–341, the exact region modified, before editing).
+- **Scope completed:** Dev Task 2 only (of 8 total, per `02-ARCHITECTURE.md` §8's Developer task
+  order) — `simpleTranslate()` structured-return refactor, plus the minimal necessary adapter in
+  `translateSentence()` documented above. Tasks 3–8 not started.
+- **Files changed:** `index.html` only.
+- **Commits created:** `313757b` — "Refactor: simpleTranslate() returns structured {ko, matched}
+  instead of a bare string".
+- **Tests performed:** See "Tests performed" above — 17/17 assertions passed via an independently
+  authored throwaway jsdom script; new-code, adapter-behavior, and regression checks all included.
+- **Unresolved risks:** None new. Carrying forward from `02-ARCHITECTURE.md` §10 (unchanged by this
+  task): the MyMemory email-quota option, the pre-existing translation-privacy gap, the
+  read-coverage caveat, and Lingva instance-list staleness. Newly noted: the `translateSentence`
+  bridge adapter (with its duplicated placeholder-string literal) is intentionally temporary and
+  should disappear as part of Dev Task 3's replacement of that function — QA/Reviewer should expect
+  it to be removed, not preserved, once Task 3 lands.
+- **Next agent:** QA Engineer.
+- **Explicit stop point:** Awaiting QA review of Dev Task 2 (commit `313757b`) before any further
+  Development work (Dev Task 3) on this milestone.
+
 ## Handoff log
 
 _(Handoffs per `.ai-company/HANDOFF_PROTOCOL.md` appended here in chronological order.)_
 
-1. Dev Task 1 handoff — see immediately above (2026-08-06).
+1. Dev Task 1 handoff — see above (2026-08-06).
+2. Dev Task 2 handoff — see immediately above (2026-08-06).
