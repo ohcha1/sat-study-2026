@@ -431,6 +431,122 @@ commit per logical task, stopping for CEO approval after each task per explicit 
 - **Explicit stop point:** Awaiting independent QA review of Dev Task 4 (commit `fb70aa0`) before
   any further Development work on this milestone.
 
+### Session: 2026-08-06 — Dev Task 5: translation(a) wired to translationRowTemplate()
+
+- **Scope addressed:** `02-ARCHITECTURE.md` §8's `translation(a)` row ("Rewritten to map each
+  entry through `translationRowTemplate(x,i)` instead of the current single-shape template
+  string") and §7's consistency requirement. QA passed Dev Task 4 first (see `04-QA-REPORT.md`,
+  QA pass 2026-08-06 against `fb70aa0`/`cbc77c5`, which also logged a new Low-severity finding,
+  ROBUST-1 — see "Carried forward" below).
+- **What was implemented:** `translation(a)`'s per-sentence card now builds its rows via
+  `a.translations.map((x,i)=>translationRowTemplate(x,i)).join("")` instead of its own inline
+  `` `<div class="sentence">...` `` template string. The second card ("자연스러운 전체 해석") is
+  untouched — that block is not named in this architecture row, and
+  `Array.prototype.join()` already renders a `null`/`undefined` element as an empty string rather
+  than the literal text `"null"`/`"undefined"`, so no defensive change was needed there.
+- **Task-ordering deviation (flagged explicitly, not decided silently):** `02-ARCHITECTURE.md` §8
+  lists this `translation(a)` row *after* the `analyze()` rewrite, `updateTranslationRow(i)`, and
+  `retrySentence(i)` rows in the table. This session implements it first, as Dev Task 5, ahead of
+  those three. Reason: `analyze()` today still produces plain `{en, ko}` objects with no `status`
+  field (confirmed directly — see Tests below). Because `translationRowTemplate` treats a missing/
+  unrecognized `status` as the default success case, wiring `translation(a)` to it *now* produces
+  byte-identical visible output to the old inline markup (plus the harmless `data-i` attribute
+  Dev Task 4 already added) — a genuinely zero-behavior-change commit. Doing the `analyze()`
+  rewrite *before* this one would have been unsafe: `analyze()` producing `status:'loading'`/
+  `'error'` objects while `translation(a)` still used its old inline template (which unconditionally
+  reads `x.ko`) would have rendered the literal text `(null)` on screen for every in-flight or
+  failed sentence — reintroducing, in a different shape, exactly the "misleading rendered output"
+  problem this milestone exists to fix. Sequencing `translation(a)` first, and `analyze()`
+  afterward, is the only order that keeps every commit in a working state per
+  `.ai-company/GIT_RULES.md` rule 1. Recorded here per `.ai-company/DEVELOPER.md`'s "if you hit a
+  case the architecture doesn't cover, stop and flag it" — the architecture fully specifies both
+  rows' end content, it just doesn't state that their *relative order* matters for safety, which
+  this note makes explicit.
+- **Files changed:** `index.html` (9 lines added, 1 removed — confirmed via `git show 284ea76
+  --stat`). Only the `translation(a)` line/comment changed; no other function touched.
+- **Commits:**
+  - `284ea76` — "Refactor: translation(a) now renders rows via translationRowTemplate() —
+    Milestone 2 Dev Task 5"
+- **Tests performed (per `.ai-company/TESTING_STANDARDS.md`):** Throwaway jsdom script (not
+  committed, per standard) loading the actual `index.html` and asserting on runtime behavior:
+  - `translation(a)` called with today's plain `{en,ko}`-shaped data renders both sentences'
+    English and Korean text correctly, plus the summary card with the joined translation.
+  - Each row now carries a `data-i` attribute (from `translationRowTemplate`); rows use the plain
+    `sentence` class (fall through to the success branch) for today's status-less data.
+  - `translation(a)`'s output is confirmed, by direct string comparison, to be produced by mapping
+    each entry through `translationRowTemplate(x,i)` — not a coincidentally-similar independent
+    implementation.
+  - Security: malicious HTML/script-shaped `en`/`ko` input passed all the way through
+    `translation(a)` is still correctly escaped (regression-checked end-to-end, not just at the
+    `translationRowTemplate` unit level already covered in Dev Task 4).
+  - Edge case: an empty `translations` array does not throw.
+  - Confirmed at the source level that `analyze()` is completely unchanged by this task — it still
+    builds `translations=sents.map((s,i)=>({en:s,ko:translated[i]}))` with no `status:` field
+    anywhere in its body (the only occurrence of the word "status" in `analyze()` is the
+    pre-existing, unrelated `document.getElementById("status")` DOM element id from before this
+    milestone).
+  - Regression: Dev Tasks 1–4's constants/functions/contracts (`CONCURRENCY_LIMIT`,
+    `simpleTranslate`'s `{ko,matched}`, `translateSentenceReliable`/`translateLingva`,
+    `translationRowTemplate`'s signature) all confirmed unchanged; `splitSentences`/`state.active`
+    unaffected; the old `translateSentence()` still returns a plain string.
+  - **Result: all 16 assertions passed** (one assertion needed a one-line fix mid-session — an
+    overly broad `!includes("status")` check false-matched the pre-existing `#status` DOM id; the
+    fix narrowed it to a `status\s*:` regex, and the corrected assertion still passed). Script kept
+    as a local scratch file only, not committed to the repository, per `TESTING_STANDARDS.md`.
+- **Deviations from architecture:** None to the specified end state (`translation(a)` does map
+  through `translationRowTemplate(x,i)` exactly as §8 states). The task-*ordering* deviation is
+  documented above as an explicit, disclosed judgment call made for safety, not a silent departure
+  from approved scope.
+- **Carried forward, not solved (per explicit instruction; none of the three items were required
+  by this task's actual code change):**
+  - **ROBUST-1** (Low, from the Dev Task 4 QA pass): `translationRowTemplate`'s success branch has
+    no guard against `x.ko` being `null`/`undefined`. This task makes `translationRowTemplate`
+    reachable from a *live* render path (`translation(a)` now calls it for real) for the first
+    time, but the specific malformed-input shape still cannot occur in practice, because
+    `analyze()` — confirmed unchanged above — never produces a `status:'success'` object paired
+    with a missing `ko`; every entry it builds always has a real string `ko`. Still deferred,
+    unchanged in status.
+  - **Worst-case provider-chain latency** (~33s, from the Dev Task 3 QA pass): unaffected by this
+    task; `translateSentenceReliable` is still not called by anything.
+  - **Duplicate in-flight requests for identical sentences** (from the Dev Task 3 QA pass):
+    unaffected by this task, same reason.
+- **Working tree note:** `docs/milestones/milestone-02/01-PM-SPEC.md`, `02-ARCHITECTURE.md`, and
+  `04-QA-REPORT.md` continue to carry the same pre-existing uncommitted content noted in prior
+  session entries; left untouched again this session for the same role-separation reason.
+- **Operational note:** none this session — no stale `.git/index.lock` encountered.
+- **Handoff:** Per explicit instruction, this session stops after Task 5 for independent QA. See
+  `.ai-company/HANDOFF_PROTOCOL.md` fields below.
+
+## Handoff — Milestone 2, Dev Task 5
+
+- **Milestone:** Milestone 2 — Translation Reliability
+- **Source documents read:** `CLAUDE.md`, `.ai-company/WORKFLOW.md`, `.ai-company/DEVELOPER.md`,
+  `.ai-company/CODING_STANDARDS.md`, `.ai-company/TESTING_STANDARDS.md`,
+  `docs/milestones/milestone-02/02-ARCHITECTURE.md` (§7/§8 specifically re-read),
+  `docs/milestones/milestone-02/03-IMPLEMENTATION-LOG.md`, and
+  `docs/milestones/milestone-02/04-QA-REPORT.md` (all re-read this session per operator
+  instruction — confirmed Dev Task 4 QA pass: PASS, with ROBUST-1 logged as Low/deferred), and the
+  current `index.html` (re-read lines 559–570, the exact region modified, before editing).
+- **Scope completed:** Dev Task 5 only (of the Developer task order established across this
+  milestone's sessions) — `translation(a)` rewired to `translationRowTemplate`, as described
+  above. The `analyze()` rewrite, `updateTranslationRow(i)`, `retrySentence(i)`, `loadSaved()`'s
+  defensive read, and the CSS style-block additions remain not started.
+- **Files changed:** `index.html` only.
+- **Commits created:** `284ea76` — "Refactor: translation(a) now renders rows via
+  translationRowTemplate() — Milestone 2 Dev Task 5".
+- **Tests performed:** See "Tests performed" above — 16/16 assertions passed via a throwaway jsdom
+  script; new-code, security, edge-case, and regression checks all included.
+- **Unresolved risks:** None new from this task's own code. Carrying forward unchanged: the
+  MyMemory email-quota option, the pre-existing translation-privacy gap, the read-coverage caveat,
+  Lingva instance-list staleness, DOC-1 (Low, wording, Dev Task 2), ROBUST-1 (Low, Dev Task 4 QA
+  pass — reachability status updated above but still not actually triggerable), the ~33s
+  worst-case provider-chain latency, and the possible duplicate in-flight requests for identical
+  sentences. None of the three items the operator asked to carry forward were solved, as
+  instructed, since none were required by this task's actual change.
+- **Next agent:** QA Engineer (independent QA, per explicit instruction).
+- **Explicit stop point:** Awaiting independent QA review of Dev Task 5 (commit `284ea76`) before
+  any further Development work on this milestone.
+
 ## Handoff log
 
 _(Handoffs per `.ai-company/HANDOFF_PROTOCOL.md` appended here in chronological order.)_
@@ -438,4 +554,5 @@ _(Handoffs per `.ai-company/HANDOFF_PROTOCOL.md` appended here in chronological 
 1. Dev Task 1 handoff — see above (2026-08-06).
 2. Dev Task 2 handoff — see above (2026-08-06).
 3. Dev Task 3 handoff — see above (2026-08-06).
-4. Dev Task 4 handoff — see immediately above (2026-08-06).
+4. Dev Task 4 handoff — see above (2026-08-06).
+5. Dev Task 5 handoff — see immediately above (2026-08-06).
