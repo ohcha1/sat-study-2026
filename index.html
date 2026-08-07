@@ -540,6 +540,32 @@ function overview(a){return `<div class="summary-grid">
  <div class="card c-mint"><h3>학습 흐름</h3>전체 해석 → 학년별 단어 → 숙어·문법 → 예문·ESL → SAT 문제 풀이</div>
  <div class="card"><h3>지문 미리보기</h3><div class="en">${escapeHtml(a.text)}</div></div>
  <div class="card c-blue"><h3>추천 학습 방법</h3><div class="ko">먼저 번역을 가리고 지문을 읽은 뒤, 단어와 구문을 확인하고 마지막에 SAT 문제를 풀어 보세요.</div></div>`}
+// Milestone 2 Dev Task 4 — see docs/milestones/milestone-02/02-ARCHITECTURE.md §5/§7/§8 ("New
+// helper, colocated near translation(a) | translationRowTemplate(x, i)"). The single shared
+// per-row markup function intended for both the future full translation(a) render and the future
+// targeted updateTranslationRow(i) patch, branching on x.status — per §7's explicit consistency
+// requirement ("both paths must render from the exact same per-row template function, not two
+// independently maintained markup strings"). All user/API-derived text (x.en, x.ko) is passed
+// through escapeHtml(), matching the existing Milestone 1 XSS-defense convention used everywhere
+// else in this file. The `error` branch never renders a placeholder string as if it were content,
+// per AC1 — it renders an explicit, visually distinct failure row instead.
+//
+// NOT YET WIRED IN: translation(a) immediately below still renders its own inline per-row markup
+// unchanged (today's single always-rendered en/ko shape, "success" state only); this function is
+// additive and currently unused, exactly like Dev Tasks 1 and 3's dormant additions.
+// translation(a)'s rewrite to consume this function, and updateTranslationRow(i)'s DOM-patching
+// use of it, are later tasks (§8's "translation(a)" and "updateTranslationRow" rows) — see
+// 03-IMPLEMENTATION-LOG.md for the full rationale.
+function translationRowTemplate(x,i){
+ const en=`<div class="en">${escapeHtml(x.en)}</div>`;
+ if(x.status==="loading"){
+  return `<div class="sentence loading" data-i="${i}">${en}<div class="ko">번역 중…</div></div>`;
+ }
+ if(x.status==="error"){
+  return `<div class="sentence error" data-i="${i}">${en}<div class="ko">이 문장의 번역에 실패했습니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.</div><button class="btn btn-soft" onclick="retrySentence(${i})">다시 시도</button></div>`;
+ }
+ return `<div class="sentence" data-i="${i}">${en}<div class="ko">(${escapeHtml(x.ko)})</div></div>`;
+}
 function translation(a){return `<div class="card c-blue translation-card"><h3>문장별 영어·한국어 해석</h3>${a.translations.map(x=>`<div class="sentence"><div class="en">${escapeHtml(x.en)}</div><div class="ko">(${escapeHtml(x.ko)})</div></div>`).join("")}</div>
 <div class="card"><h3>자연스러운 전체 해석</h3><div class="ko">${escapeHtml(a.translations.map(x=>x.ko).join(" "))}</div></div>`}
 function dictionaryLinks(word){
