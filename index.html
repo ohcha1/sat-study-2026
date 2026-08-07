@@ -854,8 +854,20 @@ function getSavedList(){
    return[];
  }
 }
+// Bug fix SAVE-1 (QA-found, High severity) — see docs/milestones/milestone-02/04-QA-REPORT.md's
+// Dev Task 6 QA pass. Milestone 2 Dev Task 6 assigns state.analysis (and calls render()) before
+// translations resolve, so saveCurrent() — unmodified since before Milestone 2 — could previously
+// persist translations still in their 'loading' shape (ko:null) into localStorage. Reopening such
+// a save via loadSaved() rendered a permanently stuck "번역 중…" row: translationRowTemplate only
+// renders a retry affordance for status:'error', never for 'loading', so there was no recovery
+// path. Fix: block the save entirely while any sentence is still loading, so a 'loading' entry can
+// never reach localStorage in the first place. This is the narrowest of the three CEO-approved
+// options — it changes only saveCurrent()'s own guard clause, touches no other function, and needs
+// no new data shape, so retry behavior (retrySentence/translationRowTemplate), Dev Task 6's
+// analyze()/updateTranslationRow(), and old pre-Milestone-2 saved sets are all unaffected.
 function saveCurrent(){
  if(!state.analysis){toast("먼저 지문을 분석해 주세요.");return}
+ if(state.analysis.translations.some(t=>t.status==="loading")){toast("한글 번역이 진행 중입니다. 번역이 완료된 후 저장해 주세요.");return}
  const list=getSavedList();
  let id=Date.now();
  while(list.some(x=>x.id===id))id++;
