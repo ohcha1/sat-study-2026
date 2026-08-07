@@ -33,17 +33,25 @@ A full feature-by-feature inspection was run after the items above shipped (all 
 - Per-sentence translation API burst / no batching — already explicitly in Milestone 2's scope below, not new.
 - The sentence splitter's naive period-handling (surfaced incidentally while constructing an XSS test payload) and the two hardcoded grammar special-cases for the sample passage — both pre-existing, already tracked under Milestone 5.
 
-## Milestone 2 — Translation Reliability
+## Milestone 2 — Translation Reliability — ✅ Development/QA/Review Complete 2026-08-07
 
 Goal: make the translation feature behave predictably for passages beyond the built-in sample.
 
-- Replace the silent "번역 서비스를 불러오지 못했습니다" placeholder (which currently renders as if it were a real translation) with a clearly labeled error/retry state.
-- Add request batching/throttling for the per-sentence MyMemory API calls to avoid bursts on long passages.
-- Add a local caching layer (session-level) so re-analyzing the same passage doesn't re-request identical sentences.
-- Evaluate and document a fallback/secondary translation source for when MyMemory is unavailable or rate-limited.
-- Add a visible loading state per sentence (not just the global status line) so partial translation progress is legible.
+- [x] Replace the silent "번역 서비스를 불러오지 못했습니다" placeholder (which currently renders as if it were a real translation) with a clearly labeled error/retry state. Implemented via `simpleTranslate()`'s structured `{ko,matched}` return (commit `313757b`), `translateSentenceReliable()`'s explicit `status:'success'|'error'` contract (commit `1563cef`), and `translationRowTemplate()`'s distinct loading/success/error row rendering (commit `fb70aa0`), with the error state's warning-colored styling and retry button finished last (commit `9fad20c`).
+- [x] Add request batching/throttling for the per-sentence MyMemory API calls to avoid bursts on long passages. Implemented via `runWithConcurrency()`, bounded to `CONCURRENCY_LIMIT=3` (commit `4f8975d`), wired into `analyze()`'s dispatch loop (commit `9dd5ae8`).
+- [x] Add a local caching layer (session-level) so re-analyzing the same passage doesn't re-request identical sentences. Implemented via the in-memory `translationCache` Map (commit `4f8975d`), read/written by `translateSentenceReliable()` (commit `1563cef`).
+- [x] Evaluate and document a fallback/secondary translation source for when MyMemory is unavailable or rate-limited. Documented in `docs/milestones/milestone-02/02-ARCHITECTURE.md` §6 (adopts Lingva Translate as secondary, rejects LibreTranslate, retains a corrected `simpleTranslate()` as tertiary fallback) and implemented via `translateLingva()` (commit `1563cef`).
+- [x] Add a visible loading state per sentence (not just the global status line) so partial translation progress is legible. Implemented via `translationRowTemplate()`'s loading branch (commit `fb70aa0`), `translation(a)`'s per-row wiring (commit `284ea76`), `analyze()`'s progressive per-sentence dispatch and `updateTranslationRow()` (commit `9dd5ae8`), and the loading-state skeleton/pulse styling (commit `9fad20c`).
+- [x] **(Discovered during QA of the above, not originally scoped)** Fix SAVE-1 (High): `saveCurrent()` could persist `translations` entries still in their `{status:'loading'}` shape once progressive rendering (above) began assigning `state.analysis` before translations resolved, producing a permanently stuck, unrecoverable "번역 중…" row if the study set was reopened. Fixed by blocking `saveCurrent()` while any translation is still loading; independently re-verified resolved. — commit `a86f8e0`
+- [x] Backward compatibility: `loadSaved()` now defaults any translation entry missing a `status` field (i.e., study sets saved before this milestone) to `'success'` in memory, without rewriting the underlying saved data. — commit `77b82ac`
 
-Exit criteria: any arbitrary English passage (not just the sample) produces either a real translation or an honest, clearly-marked failure state — never a misleading canned string.
+Exit criteria: met. Any arbitrary English passage (not just the sample) now produces either a real translation (MyMemory → Lingva → phrase-map fallback chain) or an honest, clearly-marked failure state with a retry option — never the old misleading canned string. Verified against all 5 acceptance criteria in `docs/milestones/milestone-02/01-PM-SPEC.md`, independently re-checked by Principal Review against the final integrated code — see `docs/milestones/milestone-02/05-REVIEW-REPORT.md`.
+
+Verification method: same as Milestone 1 — no automated test framework exists in this repo, so each of the 8 Developer Tasks (plus the SAVE-1 fix) was independently verified with freshly-authored, throwaway jsdom scripts by both the Senior Developer (self-test) and an independent QA pass, per `.ai-company/TESTING_STANDARDS.md`. Full QA history for all 8 tasks plus the SAVE-1 fix is recorded in `docs/milestones/milestone-02/04-QA-REPORT.md` (all PASS, no unresolved Critical/High/Medium defects).
+
+**Release status:** Development, QA, and a first Principal Review pass are complete. Release
+packaging and the CEO push-approval gate have not yet occurred — this milestone has not been pushed.
+See `docs/milestones/milestone-02/05-REVIEW-REPORT.md` for the current gate status.
 
 ## Milestone 3 — Dictionary Upgrade
 
