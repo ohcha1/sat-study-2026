@@ -803,6 +803,84 @@ commit per logical task, stopping for CEO approval after each task per explicit 
 - **Explicit stop point:** Awaiting independent QA review of the SAVE-1 fix (commit `a86f8e0`)
   before Dev Task 7 may begin.
 
+### Session: 2026-08-07 — Dev Task 7: loadSaved() defensive status-default read
+
+- **Scope addressed:** `02-ARCHITECTURE.md` §8's `loadSaved()` row only, per explicit CEO
+  instruction to begin Task 7 and not Task 8. Context confirmed before starting: Tasks 1–6 are
+  complete, and SAVE-1 has been independently verified as Resolved (PASS) in `04-QA-REPORT.md`.
+- **Problem:** Saved study sets created before Milestone 2 have `translations` entries shaped only
+  as `{en, ko}` — no `status` field at all. `translationRowTemplate` (Dev Task 4/5) branches on
+  `x.status`, so an entry with `status: undefined` falls through to neither the `'loading'` nor the
+  `'error'` branch's intended meaning; it happens to render via the default (success) branch today,
+  but relying on `undefined` matching that branch by accident is fragile and not what
+  `CODING_STANDARDS.md`'s "handle localStorage reads defensively" rule calls for.
+- **What was implemented:** `loadSaved(id)` now maps over `x.translations` (if it is an array) and
+  defaults any entry whose `status` is falsy to `status: "success"`, leaving entries that already
+  have a truthy `status` (`'success'` or `'error'`) completely untouched. This is applied only to
+  the in-memory object assigned to `state.analysis` — the underlying `localStorage` record is never
+  rewritten, so saved data on disk is left exactly as it was. An `Array.isArray` guard prevents a
+  crash if `translations` is missing or malformed on an old or hand-edited record.
+- **Files changed:** `index.html` (9 lines added, 0 removed — confirmed via `git show 77b82ac
+  --stat`). Only `loadSaved()` and its preceding explanatory comment were touched; `deleteSaved()`
+  and every other function are unchanged (confirmed via `git diff` before committing).
+- **Commits:**
+  - `77b82ac` — "Add: loadSaved() defensive status-default read — Milestone 2 Dev Task 7"
+- **Tests performed (per `.ai-company/TESTING_STANDARDS.md`):** Freshly authored throwaway jsdom
+  script (`verify-task7.js`, not committed), run against the real `index.html` via the established
+  `window.__QA__` bridge technique:
+  - A legacy item with translations missing `status` entirely is defaulted to `'success'` in
+    memory, keeps its original `ko` text, and renders via the normal success row (no loading
+    skeleton, no error message).
+  - `localStorage` itself is confirmed byte-identical before and after `loadSaved()` — the patch is
+    read-only/in-memory, as intended.
+  - An item whose translations already carry an explicit `status` (tested with `'error'`) is left
+    unchanged by the new guard; its retry button still renders and `retrySentence()` still works
+    end-to-end afterward.
+  - A malformed record (`translations: null`) does not throw thanks to the `Array.isArray` guard.
+  - Full save→load round-trip of a normal (non-legacy) item produced by the current `analyze()` is
+    unaffected.
+  - Regression: re-verified Tasks 1–6 (constants, `simpleTranslate` contract, `translateSentenceReliable`/
+    `translateLingva`, `translationRowTemplate`, `translation(a)` wiring, `analyze()`'s progressive
+    dispatch/concurrency limit/final status summary) and the SAVE-1 fix (saving is still blocked
+    while any translation is `'loading'`) are all unaffected.
+  - Security: a legacy item containing malicious `en`/`ko` text is still fully escaped after the
+    defensive read — no new injection surface introduced.
+  - **Result: all 19 assertions passed.** Script kept as a local scratch file only, not committed.
+- **Deviations from architecture:** None. The implementation matches §8's `loadSaved()` row exactly
+  as scoped; no other function was touched, and no Task 8 (CSS style-block) work was started.
+- **Working tree note:** `docs/milestones/milestone-02/01-PM-SPEC.md`, `02-ARCHITECTURE.md`, and
+  `04-QA-REPORT.md` continue to carry the same pre-existing uncommitted content noted in every prior
+  session entry; left untouched again this session for the same role-separation reason.
+- **Operational note:** none this session — no stale `.git/index.lock` encountered.
+- **Handoff:** Per explicit instruction, this session stops after Task 7 for independent QA. Task 8
+  is explicitly not started. See `.ai-company/HANDOFF_PROTOCOL.md` fields below.
+
+## Handoff — Milestone 2, Dev Task 7
+
+- **Milestone:** Milestone 2 — Translation Reliability
+- **Source documents read:** `CLAUDE.md`, `.ai-company/WORKFLOW.md`, `.ai-company/CODING_STANDARDS.md`,
+  `.ai-company/DEFINITION_OF_DONE.md`, `docs/milestones/milestone-02/01-PM-SPEC.md`,
+  `02-ARCHITECTURE.md` (§8's `loadSaved()` row), `03-IMPLEMENTATION-LOG.md`, `04-QA-REPORT.md`, and
+  the current `index.html` (`loadSaved()`, `translationRowTemplate()`, `saveCurrent()`, re-read
+  before editing).
+- **Scope completed:** Dev Task 7 only — `loadSaved()`'s defensive status-default read. Task 8 (CSS
+  style-block additions) explicitly not started, per instruction.
+- **Files changed:** `index.html` only.
+- **Commits created:** `77b82ac` — "Add: loadSaved() defensive status-default read — Milestone 2
+  Dev Task 7".
+- **Tests performed:** See "Tests performed" above — 19/19 assertions passed via a freshly authored
+  throwaway jsdom script covering the defensive read itself, non-interference with already-tagged
+  entries, malformed-data safety, the read-only/no-localStorage-rewrite property, security/escaping,
+  and full regression across Tasks 1–6 and the SAVE-1 fix.
+- **Unresolved risks:** None introduced by this task. Previously open Low-severity items (DOC-1,
+  ROBUST-1, worst-case provider latency, duplicate in-flight requests) are unaffected and remain
+  open, deferrable per `.ai-company/DEFINITION_OF_DONE.md`. Dev Task 8 (CSS style-block additions
+  for `.sentence.loading`/`.sentence.error`) remains the only unstarted row in §8's file-by-file
+  plan.
+- **Next agent:** QA Engineer (independent QA).
+- **Explicit stop point:** Awaiting independent QA review of Dev Task 7 (commit `77b82ac`) before
+  Dev Task 8 may begin.
+
 ## Handoff log
 
 _(Handoffs per `.ai-company/HANDOFF_PROTOCOL.md` appended here in chronological order.)_
@@ -813,4 +891,5 @@ _(Handoffs per `.ai-company/HANDOFF_PROTOCOL.md` appended here in chronological 
 4. Dev Task 4 handoff — see above (2026-08-06).
 5. Dev Task 5 handoff — see above (2026-08-06).
 6. Dev Task 6 handoff — see above (2026-08-06).
-7. Bug fix SAVE-1 handoff — see immediately above (2026-08-06).
+7. Bug fix SAVE-1 handoff — see above (2026-08-06).
+8. Dev Task 7 handoff — see immediately above (2026-08-07).
