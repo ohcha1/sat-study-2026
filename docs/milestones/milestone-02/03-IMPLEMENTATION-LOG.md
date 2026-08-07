@@ -881,6 +881,106 @@ commit per logical task, stopping for CEO approval after each task per explicit 
 - **Explicit stop point:** Awaiting independent QA review of Dev Task 7 (commit `77b82ac`) before
   Dev Task 8 may begin.
 
+### Session: 2026-08-07 — Dev Task 8: .sentence.loading/.sentence.error CSS states (final Milestone 2 implementation task)
+
+- **Scope addressed:** `02-ARCHITECTURE.md` §8's `<style>` block row only — the last unimplemented
+  row in the file-by-file plan. Context confirmed before starting: Tasks 1–7 have all passed
+  independent QA, and SAVE-1 remains resolved. Per explicit instruction, this is the final
+  implementation task for Milestone 2.
+- **What was implemented:** Two new CSS rules added to the existing `<style>` block, immediately
+  after the pre-existing `.sentence{...}` rule: `.sentence.loading` (background from the existing
+  `--sky` design token, rounded corners/padding matching the row's existing spacing, and a subtle
+  `sentencePulse` opacity animation as the "skeleton/spinner treatment" called for in the
+  architecture) and `.sentence.error` (a warning-colored variant using the existing `--danger`
+  token for both a left accent border and the failure text color, plus top margin on the retry
+  button so it doesn't crowd the error message). Both reuse design tokens already defined in
+  `:root` rather than introducing new hardcoded colors, per the architecture's explicit instruction
+  to follow the existing `c-blue`/`c-pink`/`c-mint` card-color convention (which likewise reuses
+  `:root` tokens rather than inlining hex values).
+- **No JS/markup change was needed or made:** `translationRowTemplate` (Dev Task 4) already emits
+  `class="sentence loading"` and `class="sentence error"` on the correct elements — this task is a
+  pure CSS addition that gives those already-existing classes their visual treatment. Tasks 1–7 are
+  otherwise completely untouched, per instruction ("Do NOT modify Tasks 1–7 except where Task 8
+  explicitly requires integration" — no such integration was required beyond the class names
+  already being in place).
+- **Files changed:** `index.html` (13 lines added, 0 removed — confirmed via `git show 9fad20c
+  --stat`). Only the `<style>` block was touched; `git diff` confirms no other line changed.
+- **Commits:**
+  - `9fad20c` — "Add: .sentence.loading/.sentence.error CSS states — Milestone 2 Dev Task 8"
+- **Tests performed (per `.ai-company/TESTING_STANDARDS.md`):** Freshly authored throwaway jsdom
+  script (`verify-task8.js`, not committed), run against the real `index.html`:
+  - Confirmed both new CSS rules exist, target the correct selectors, and reuse the `--sky`/
+    `--danger` tokens rather than new hardcoded colors; confirmed a pulse/keyframes rule exists for
+    the loading state's animation.
+  - Confirmed `translationRowTemplate`'s loading/error branch markup and the retry button's
+    `onclick` wiring are byte-for-byte unchanged.
+  - Built a live `state.analysis` with one loading, one error, and one success row and rendered it:
+    confirmed the DOM produces exactly one `.sentence.loading` element, one `.sentence.error`
+    element, and one plain `.sentence` element (no stray class leakage across rows); confirmed the
+    retry button is still present inside the error row.
+  - **Known jsdom/tooling limitation, not a product defect:** asserting the *resolved* computed
+    `background-color` on `.sentence.loading` failed under jsdom, because jsdom's CSS engine
+    (`cssstyle`) does not resolve CSS custom properties (`var(...)`) to a final color value in
+    `getComputedStyle`, and separately does not support `@keyframes`/`animation` in computed style
+    at all. Verified this is a general jsdom limitation, not specific to this change, by reproducing
+    the identical behavior on a trivial, unrelated `<style>@keyframes foo{...} .x{animation:foo
+    1s infinite}</style>` snippet outside this codebase (jsdom 30.0.1: `animation-name` computes to
+    `"none"` even there). The rule's raw (unresolved) `background` computed value is confirmed to be
+    exactly `var(--sky)` — proof the rule matched and applied as written; only the browser-side
+    variable substitution step is a gap in jsdom, which is a real browser's job to perform correctly
+    at render time, not something this codebase's CSS can control. Non-variable properties on the
+    same rule (`border-radius`, `padding`) resolved correctly under jsdom, further isolating the gap
+    to variable/animation resolution specifically. **Result: 23 of 24 assertions passed; the one
+    failure is this documented tooling limitation, not a defect.**
+  - Regression: re-verified Tasks 1–7 (constants, `simpleTranslate` contract,
+    `translateSentenceReliable`/`translateLingva`, `translationRowTemplate`/`translation(a)` wiring,
+    `analyze()`'s live progressive dispatch/concurrency/status summary, the SAVE-1 save-while-loading
+    guard, and `loadSaved()`'s defensive status-default read) are all unaffected.
+  - Security: escaping remains intact end-to-end after this CSS-only change (verified live with a
+    malicious provider-returned translation string).
+- **Deviations from architecture:** None. §8 explicitly states "Exact values are a Developer-level
+  styling decision, not specified further here" — the specific colors (reused from existing tokens),
+  animation timing (1.4s), and border width (3px) are exactly that kind of decision, made in the
+  spirit of matching the existing design system rather than inventing a new visual language.
+- **Working tree note:** `docs/milestones/milestone-02/01-PM-SPEC.md`, `02-ARCHITECTURE.md`, and
+  `04-QA-REPORT.md` continue to carry the same pre-existing uncommitted content noted in every prior
+  session entry; left untouched again this session for the same role-separation reason.
+- **Operational note:** none this session — no stale `.git/index.lock` encountered.
+- **Milestone status:** With Dev Task 8 committed, all 8 rows of `02-ARCHITECTURE.md` §8's
+  file-by-file implementation plan are now implemented. This is the last Development-stage session
+  for Milestone 2 per the architecture's task order; per `.ai-company/WORKFLOW.md`, remaining stages
+  are the QA Defect Gate for this task, followed by Principal Review, Release Review, and the final
+  CEO Push Approval gate — none of which this session performs.
+- **Handoff:** Per explicit instruction, this session stops after Task 8 for independent QA. See
+  `.ai-company/HANDOFF_PROTOCOL.md` fields below.
+
+## Handoff — Milestone 2, Dev Task 8
+
+- **Milestone:** Milestone 2 — Translation Reliability
+- **Source documents read:** `CLAUDE.md`, `.ai-company/WORKFLOW.md`, `.ai-company/CODING_STANDARDS.md`,
+  `.ai-company/DEFINITION_OF_DONE.md`, `docs/milestones/milestone-02/01-PM-SPEC.md`,
+  `02-ARCHITECTURE.md` (§8's `<style>` block row), `03-IMPLEMENTATION-LOG.md`, `04-QA-REPORT.md`,
+  and the current `index.html` (the `<style>` block and `translationRowTemplate`, re-read before
+  editing).
+- **Scope completed:** Dev Task 8 only — the `.sentence.loading`/`.sentence.error` CSS additions.
+  This completes all 8 rows of the approved architecture's file-by-file implementation plan; no
+  further Development-stage tasks remain scoped for this milestone.
+- **Files changed:** `index.html` only.
+- **Commits created:** `9fad20c` — "Add: .sentence.loading/.sentence.error CSS states — Milestone 2
+  Dev Task 8".
+- **Tests performed:** See "Tests performed" above — 23/24 assertions passed via a freshly authored
+  throwaway jsdom script; the one failure is a documented, independently-reproduced jsdom tooling
+  limitation (no CSS custom-property/animation resolution in computed style), not a product defect.
+  Full regression across Tasks 1–7 and the SAVE-1 fix confirmed unaffected.
+- **Unresolved risks:** None introduced by this task. Previously open Low-severity items (DOC-1,
+  ROBUST-1, ROBUST-2, worst-case provider latency, duplicate in-flight requests) are unaffected and
+  remain open, deferrable per `.ai-company/DEFINITION_OF_DONE.md`. No further implementation rows
+  remain in `02-ARCHITECTURE.md` §8.
+- **Next agent:** QA Engineer (independent QA).
+- **Explicit stop point:** Awaiting independent QA review of Dev Task 8 (commit `9fad20c`). Per
+  `.ai-company/WORKFLOW.md`, once QA confirms no unresolved Critical/High defects across the full
+  milestone, the next stage is the Principal Review Quality Gate — not a role this session performs.
+
 ## Handoff log
 
 _(Handoffs per `.ai-company/HANDOFF_PROTOCOL.md` appended here in chronological order.)_
@@ -892,4 +992,5 @@ _(Handoffs per `.ai-company/HANDOFF_PROTOCOL.md` appended here in chronological 
 5. Dev Task 5 handoff — see above (2026-08-06).
 6. Dev Task 6 handoff — see above (2026-08-06).
 7. Bug fix SAVE-1 handoff — see above (2026-08-06).
-8. Dev Task 7 handoff — see immediately above (2026-08-07).
+8. Dev Task 7 handoff — see above (2026-08-07).
+9. Dev Task 8 handoff — see immediately above (2026-08-07).
