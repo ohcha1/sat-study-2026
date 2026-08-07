@@ -881,8 +881,17 @@ function renderSaved(){
  const list=getSavedList().filter(x=>(x.title+" "+x.text).toLowerCase().includes(q));
  document.getElementById("savedList").innerHTML=list.length?list.map(x=>`<div class="saved-item"><h4>${escapeHtml(x.title)}</h4><div class="saved-meta">${escapeHtml(x.grade)} · ${escapeHtml(x.date)} · 어휘 ${x.vocab.length}개 · 문제 ${x.questions.length}개</div><button class="btn btn-soft" onclick="loadSaved(${x.id})">열기</button> <button class="btn btn-danger" onclick="deleteSaved(${x.id})">삭제</button></div>`).join(""):"<div class='empty' style='height:240px'>저장된 자료가 없습니다.</div>";
 }
+// Milestone 2 Dev Task 7 — see docs/milestones/milestone-02/02-ARCHITECTURE.md §8's loadSaved()
+// row. Defensive read: saved sets from before this milestone have translations entries shaped
+// only as {en,ko}, with no status field at all — translationRowTemplate (Dev Task 4/5) branches
+// on x.status, so a missing field must default to 'success' (matches those older entries' actual
+// meaning: they always held a real, already-resolved ko string) rather than being left undefined.
+// Matches CODING_STANDARDS.md's "handle localStorage reads defensively" rule. This only patches
+// the in-memory object used for this render — it does not rewrite localStorage, so the saved data
+// on disk is left exactly as it was.
 function loadSaved(id){
  const list=getSavedList(),x=list.find(v=>v.id===id);if(!x)return;
+ if(Array.isArray(x.translations))x.translations=x.translations.map(t=>t&&t.status?t:{...t,status:"success"});
  state.analysis=x;document.getElementById("title").value=x.title;document.getElementById("passage").value=x.text;document.getElementById("grade").value=x.grade;document.getElementById("analysisTitle").textContent=x.title;closeSaved();render();toast("저장된 학습자료를 열었습니다.");
 }
 function deleteSaved(id){
