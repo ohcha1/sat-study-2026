@@ -9,3 +9,8 @@ SAT English Learning Studio
 - Reading
 - AI Explanation
 - SAT Practice
+
+## AI Development Workflow
+
+This repository uses a persistent, file-based multi-agent workflow for development. Start at
+[`CLAUDE.md`](./CLAUDE.md) and [`.ai-company/WORKFLOW.md`](./.ai-company/WORKFLOW.md).
