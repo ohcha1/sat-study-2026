@@ -566,7 +566,15 @@ function translationRowTemplate(x,i){
  }
  return `<div class="sentence" data-i="${i}">${en}<div class="ko">(${escapeHtml(x.ko)})</div></div>`;
 }
-function translation(a){return `<div class="card c-blue translation-card"><h3>문장별 영어·한국어 해석</h3>${a.translations.map(x=>`<div class="sentence"><div class="en">${escapeHtml(x.en)}</div><div class="ko">(${escapeHtml(x.ko)})</div></div>`).join("")}</div>
+// Milestone 2 Dev Task 5 — see docs/milestones/milestone-02/02-ARCHITECTURE.md §7/§8 row
+// "translation(a) (lines 443–444) | Rewritten to map each entry through translationRowTemplate(x,i)
+// instead of the current single-shape template string." Per-sentence rows now go through the one
+// shared template function introduced in Dev Task 4, satisfying §7's consistency requirement
+// ("both paths must render from the exact same per-row template function"). The "자연스러운 전체
+// 해석" (natural full interpretation) summary card below is unchanged — that block isn't named in
+// this architecture row, and Array.prototype.join() already treats a null/undefined ko as an empty
+// string rather than the literal text "null"/"undefined", so it needs no change here.
+function translation(a){return `<div class="card c-blue translation-card"><h3>문장별 영어·한국어 해석</h3>${a.translations.map((x,i)=>translationRowTemplate(x,i)).join("")}</div>
 <div class="card"><h3>자연스러운 전체 해석</h3><div class="ko">${escapeHtml(a.translations.map(x=>x.ko).join(" "))}</div></div>`}
 function dictionaryLinks(word){
  const w=encodeURIComponent(word);
