@@ -313,10 +313,129 @@ commit per logical task, stopping for CEO approval after each task per explicit 
 - **Explicit stop point:** Awaiting QA review of Dev Task 3 (commit `1563cef`) before any further
   Development work (Dev Task 4/8) on this milestone.
 
+### Session: 2026-08-06 — Dev Task 4: translationRowTemplate() shared per-row markup helper
+
+- **Scope addressed:** `02-ARCHITECTURE.md` §8's "New helper, colocated near `translation(a)` |
+  `translationRowTemplate(x, i)`" row, and the consistency requirement in §7 ("both paths must
+  render from the exact same per-row template function, not two independently-maintained markup
+  strings — called out explicitly in §8 as an implementation requirement, not left to Developer
+  discretion"). This is the fourth of the 8 tasks in §8's Developer task order. QA passed Dev Task
+  3 first (see `04-QA-REPORT.md`, QA pass 2026-08-06 against `1563cef`/`54f235a`).
+- **What was implemented:** `translationRowTemplate(x, i)`, colocated immediately before
+  `translation(a)` per the architecture's placement instruction. Branches on `x.status`:
+  - `'loading'` → a `.sentence.loading` row (the exact class name §8's later style-block row names
+    for CSS targeting) with the Korean `"번역 중…"` label quoted verbatim from §5.
+  - `'error'` → a `.sentence.error` row (again, the exact class name §8's style-block row names)
+    with an explicit Korean failure message and a `"다시 시도"` retry button (label quoted verbatim
+    from §5) wired to `retrySentence(i)` via the same inline-`onclick` convention already used
+    throughout this file — never the old placeholder string rendered as if it were content, per
+    AC1 and §6.
+  - `'success'` (default) → visually identical to today's existing row shape (en/ko pair in
+    parens), per §5's "today's existing row shape ... unchanged visually."
+  - Every branch escapes `x.en`/`x.ko` via the existing `escapeHtml()` helper, matching the
+    Milestone 1 XSS-defense convention used everywhere else in this file.
+  - Each branch's outer `<div>` carries a `data-i="${i}"` attribute. This is not explicitly
+    specified in the architecture text, but the function's own signature (`translationRowTemplate(x,
+    i)`) and §7's description of `updateTranslationRow(i)` needing to "patch the DOM node for row
+    i" both presuppose some way to address a specific row's DOM node by index; `data-i` is the
+    minimal, non-visual mechanism that fulfills that evident purpose without inventing new
+    behavior beyond what `i` is already there for. Flagged here explicitly, per
+    `.ai-company/DEVELOPER.md`'s "if you hit a case the architecture doesn't cover, stop and flag
+    it," rather than deciding silently.
+  - The exact error-message wording (`"이 문장의 번역에 실패했습니다. 인터넷 연결을 확인한 뒤 다시
+    시도해 주세요."`) is a Developer-level text choice — §5/Assumption A5 of `01-PM-SPEC.md`
+    explicitly leaves exact copy/wording to Development, requiring only that the state be
+    *distinguishable*, not prescribing its exact text.
+- **Files changed:** `index.html` (26 lines added, 0 removed — confirmed via `git show fb70aa0
+  --stat`). No existing line modified; `translation(a)` immediately below is untouched.
+- **Commits:**
+  - `fb70aa0` — "Add: translationRowTemplate() shared per-row markup helper — Milestone 2 Dev
+    Task 4"
+- **Tests performed (per `.ai-company/TESTING_STANDARDS.md`):** Throwaway jsdom script (not
+  committed, per standard) loading the actual `index.html` and asserting on runtime behavior:
+  - `success` row: byte-for-byte matches the pre-existing `translation()` row shape (same
+    `en`/`ko`-in-parens structure), plus the new `data-i` attribute.
+  - `loading` row: correct class, shows the `"번역 중…"` label, never renders `ko:null` as the
+    literal text `"null"`.
+  - `error` row: correct class, explicit Korean failure message present, retry button correctly
+    wired to `retrySentence(i)` for the given index, never renders the old placeholder string,
+    never renders `ko:null` as `"null"`.
+  - Security: malicious HTML/script-shaped `en`/`ko` input is correctly escaped in the output
+    (verified both are neutralized, not just one).
+  - Regression: `translation(a)`'s own source is confirmed byte-for-byte unchanged and does not
+    reference `translationRowTemplate` yet; calling `translation(a)` directly still works exactly
+    as before (the new, dormant sibling function doesn't interfere). All of Dev Tasks 1–3's
+    constants/functions/contracts confirmed unchanged; `analyze()` confirmed to not reference
+    `translationRowTemplate`.
+  - **Result: all 22 assertions passed.** Script kept as a local scratch file only, not committed
+    to the repository, per `TESTING_STANDARDS.md`.
+- **Deviations from architecture:** None to the specified function's branching/behavior — matches
+  §5/§7/§8 exactly. The `data-i` attribute and the exact error-copy wording are documented above as
+  necessary, disclosed judgment calls within the function's own evident scope, not deviations from
+  approved behavior.
+- **Recorded per explicit instruction, not solved in this task (carried forward from the Dev Task
+  3 QA pass, `04-QA-REPORT.md`):**
+  - **Worst-case provider-chain latency:** independently measured by QA at ~33 seconds per
+    sentence when every tier of `translateSentenceReliable` fails (2× MyMemory timeout + backoff +
+    2× Lingva timeout). Inherent to `02-ARCHITECTURE.md` §2/§3's own approved timeout/backoff
+    constants; not something Dev Task 4 touches, causes, or is positioned to fix — `analyze()` is
+    not even wired to the new provider chain yet. Relevant to whoever implements the `analyze()`
+    rewrite (Dev Task 8's concurrency dispatch) and the loading-state UX this task's
+    `translationRowTemplate` renders, since a `'loading'` row could remain visible for up to ~33s
+    per stuck sentence in the worst case.
+  - **Possible duplicate in-flight requests for identical sentences:** `translationCache` has no
+    in-flight de-duplication — two concurrent calls for the same sentence text that both miss the
+    cache before either resolves would each independently fire the full network chain. Not
+    reachable today (nothing calls `translateSentenceReliable` concurrently yet), and not
+    something `translationRowTemplate` (a pure rendering function with no network/cache
+    interaction) could introduce or fix. Relevant to whoever implements Dev Task 8's concurrent
+    `runWithConcurrency` dispatch.
+  - Neither item is addressed by this task's code; both are recorded here again, unchanged, per
+    explicit operator instruction to track without solving outside Task 4's scope.
+- **Working tree note:** `docs/milestones/milestone-02/01-PM-SPEC.md`, `02-ARCHITECTURE.md`, and
+  `04-QA-REPORT.md` continue to carry the same pre-existing uncommitted content noted in prior
+  session entries; left untouched again this session for the same role-separation reason.
+- **Operational note:** none this session — no stale `.git/index.lock` encountered.
+- **Handoff:** Per explicit instruction, this session stops after Task 4 for independent QA. See
+  `.ai-company/HANDOFF_PROTOCOL.md` fields below.
+
+## Handoff — Milestone 2, Dev Task 4
+
+- **Milestone:** Milestone 2 — Translation Reliability
+- **Source documents read:** `CLAUDE.md`, `.ai-company/WORKFLOW.md`, `.ai-company/DEVELOPER.md`,
+  `.ai-company/CODING_STANDARDS.md`, `.ai-company/TESTING_STANDARDS.md`,
+  `docs/milestones/milestone-02/02-ARCHITECTURE.md` (§5/§7/§8 specifically re-read), and
+  `docs/milestones/milestone-02/03-IMPLEMENTATION-LOG.md` (all re-read this session per operator
+  instruction), plus `docs/milestones/milestone-02/04-QA-REPORT.md` (confirmed Dev Task 3 QA pass:
+  PASS, no unresolved Critical/High defects; noted the two carried-forward observations recorded
+  above), `docs/milestones/milestone-02/01-PM-SPEC.md` (Status: APPROVED, §5/Assumption A5
+  re-checked for the error-copy wording question), and the current `index.html` (re-read lines
+  536–545, the exact region modified, before editing).
+- **Scope completed:** Dev Task 4 only (of 8 total, per `02-ARCHITECTURE.md` §8's Developer task
+  order) — `translationRowTemplate(x, i)` added as described above. Tasks 5–8 not started.
+- **Files changed:** `index.html` only.
+- **Commits created:** `fb70aa0` — "Add: translationRowTemplate() shared per-row markup helper —
+  Milestone 2 Dev Task 4".
+- **Tests performed:** See "Tests performed" above — 22/22 assertions passed via a throwaway jsdom
+  script; new-code, security, and regression checks all included.
+- **Unresolved risks:** None new from this task's own code. Carrying forward from
+  `02-ARCHITECTURE.md` §10 and the Dev Task 3 QA pass: the MyMemory email-quota option, the
+  pre-existing translation-privacy gap, the read-coverage caveat, Lingva instance-list staleness,
+  DOC-1 (Low, wording nit from Dev Task 2, still open), the ~33s worst-case provider-chain latency,
+  and the possible duplicate in-flight requests for identical sentences (both recorded again above
+  per explicit instruction, not addressed by this task). Newly noted: `translationRowTemplate` is
+  fully implemented but entirely unused until Dev Task 8 (or an earlier `translation(a)`-rewrite
+  task) wires it in — QA should expect it to be dormant/unreachable from the UI in this pass, by
+  design, not as a defect.
+- **Next agent:** QA Engineer (independent QA, per explicit instruction).
+- **Explicit stop point:** Awaiting independent QA review of Dev Task 4 (commit `fb70aa0`) before
+  any further Development work on this milestone.
+
 ## Handoff log
 
 _(Handoffs per `.ai-company/HANDOFF_PROTOCOL.md` appended here in chronological order.)_
 
 1. Dev Task 1 handoff — see above (2026-08-06).
 2. Dev Task 2 handoff — see above (2026-08-06).
-3. Dev Task 3 handoff — see immediately above (2026-08-06).
+3. Dev Task 3 handoff — see above (2026-08-06).
+4. Dev Task 4 handoff — see immediately above (2026-08-06).
