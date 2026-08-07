@@ -192,9 +192,131 @@ commit per logical task, stopping for CEO approval after each task per explicit 
 - **Explicit stop point:** Awaiting QA review of Dev Task 2 (commit `313757b`) before any further
   Development work (Dev Task 3) on this milestone.
 
+### Session: 2026-08-06 — Dev Task 3: translateSentenceReliable() + translateLingva()
+
+- **Scope addressed:** `02-ARCHITECTURE.md` §8 row 3 ("`translateSentence(s)` (line 321) | Replace
+  with `translateSentenceReliable(s, {bypassCache=false}={})`") and the "New helper ...
+  `translateLingva(s)`" row, plus §6's Lingva-adoption decision. This is the third of the 8 tasks
+  in §8's Developer task order. QA passed Dev Task 2 first (see `04-QA-REPORT.md`, QA pass
+  2026-08-06 against `313757b`/`95f9d43`).
+- **What was implemented:**
+  - `LINGVA_INSTANCES` — an ordered array of two Lingva Translate mirror hostnames
+    (`translate.plausibility.cloud`, `lingva.garudalinux.org`), colocated with the Dev Task 1
+    scaffolding, per §6's explicit requirement that the fallback list "must not be hardcoded to a
+    single instance."
+  - `translateLingva(s)` — tries each `LINGVA_INSTANCES` host in order against Lingva's
+    `/api/v1/en/ko/{text}` endpoint, each attempt wrapped in `fetchWithTimeout`; returns the
+    translation string on the first mirror that responds `ok` with a non-empty `translation`
+    field, or `null` if every mirror fails.
+  - `translateSentenceReliable(s, {bypassCache=false}={})` — the full provider chain from §2–§4/§6:
+    checks `translationCache` first unless `bypassCache` is set; on a cache miss, attempts
+    MyMemory once, waits `RETRY_BACKOFF_MS` (800ms) and attempts MyMemory a second time on
+    failure, falls through to `translateLingva(s)`, and finally to `simpleTranslate(s)`. Returns
+    `{ko, status:'success'|'error', source}`; writes only successful results into
+    `translationCache`, keyed by the exact sentence text, per §4's "only successful results are
+    cached" rule. When every tier fails (including a `simpleTranslate` `matched:false`), returns
+    `{ko:null, status:'error', source:null}` — never a placeholder string — per §6's exact
+    specification.
+- **Interpretation of "Replace" (flagged explicitly, not decided silently):** §8 row 3's literal
+  wording says translateSentence(s) is "replaced with" translateSentenceReliable(s,...). Taken
+  literally and in isolation, that would mean deleting `translateSentence` and repointing
+  `analyze()`'s existing call site at the new function in this same task. That is **not** what was
+  done. Reason: `analyze()`'s current call site
+  (`Promise.all(sents.map(s=>translateSentence(s)))`) expects a plain string return;
+  `translateSentenceReliable` returns a structured `{ko,status,source}` object. Actually rewiring
+  `analyze()` to consume that shape — including the progressive per-row rendering, the switch from
+  `Promise.all` to `runWithConcurrency`, and the `#status` counter changes — is explicitly §8's
+  separate `analyze()` row (Dev Task 8), not this row. Doing a partial, unwired swap here (e.g.
+  changing only the function name at the call site without the rest of Task 8's wiring) would
+  either (a) break rendering immediately, since `ko` would render as `[object Object]`, violating
+  `.ai-company/GIT_RULES.md` rule 1's "every commit should leave the application in a working
+  state," or (b) require implementing part of Task 8's scope now, which
+  `.ai-company/DEVELOPER.md` prohibits without flagging upward first. Resolution: this task adds
+  `translateSentenceReliable`/`translateLingva` as new, fully-implemented, self-contained
+  functions — exactly matching the pattern already established in Dev Task 1, where
+  `fetchWithTimeout`/`runWithConcurrency` were added and left dormant until later tasks wired them
+  in. `translateSentence()` and `analyze()` are completely untouched this session. This is recorded
+  here per `.ai-company/DEVELOPER.md`'s "if you hit a case the architecture doesn't cover, stop and
+  flag it" — the architecture fully specifies both functions' behavior, it only doesn't spell out
+  the intermediate sequencing between adding them and retiring the old function, which this note
+  makes explicit rather than resolving silently.
+- **Files changed:** `index.html` (69 lines added, 0 removed; no existing line modified — confirmed
+  via `git show 1563cef --stat`).
+- **Commits:**
+  - `1563cef` — "Add: translateSentenceReliable() and translateLingva() — Milestone 2 Dev Task 3"
+- **Tests performed (per `.ai-company/TESTING_STANDARDS.md`):** Throwaway jsdom script (not
+  committed, per standard) loading the actual `index.html` and asserting on runtime behavior with
+  a mocked/instrumented `fetch`:
+  - MyMemory success on first attempt: exactly one `fetch` call, `status:'success'`,
+    `source:'mymemory'`, result cached under the exact sentence key.
+  - Cache hit: a second call for the same sentence issues zero new `fetch` calls.
+  - `bypassCache:true` forces a fresh network attempt even when a cached result exists.
+  - MyMemory fails twice with the expected ~800ms backoff observed between attempts, then falls
+    through to Lingva; Lingva success yields `status:'success'`, `source:'lingva'`.
+  - `translateLingva` skips a non-`ok` first mirror and succeeds on the second configured mirror;
+    returns `null` (not a thrown error) when every mirror fails.
+  - Total failure across all tiers with no phrase-map match: `status:'error'`, `ko:null`,
+    `source:null`, and the sentence is confirmed **not** written to `translationCache`.
+  - Total network failure but a phrase-map match exists: `status:'success'`,
+    `source:'phrasemap'`, and the result **is** cached.
+  - Regression: `CONCURRENCY_LIMIT`/`REQUEST_TIMEOUT_MS`/`RETRY_BACKOFF_MS`/`runWithConcurrency`/
+    `fetchWithTimeout` (Task 1) and `simpleTranslate`'s `{ko,matched}` contract (Task 2) all
+    unchanged; the old `translateSentence()` still returns a plain string; `analyze()`'s source is
+    confirmed (via direct string search on its body) to not reference
+    `translateSentenceReliable` yet.
+  - **Result: all 36 assertions passed.** Script kept as a local scratch file only, not committed
+    to the repository, per `TESTING_STANDARDS.md`.
+- **Deviations from architecture:** None to the specified functions' behavior — both match §2–§4/§6
+  exactly. The sequencing interpretation of "Replace" is documented above as an explicit,
+  disclosed judgment call, not a silent deviation.
+- **Working tree note:** `docs/milestones/milestone-02/01-PM-SPEC.md`, `02-ARCHITECTURE.md`, and
+  `04-QA-REPORT.md` continue to carry the same pre-existing uncommitted content noted in the Dev
+  Task 1 and Dev Task 2 entries above; left untouched again this session for the same
+  role-separation reason.
+- **Operational note:** none this session — no stale `.git/index.lock` encountered this time.
+- **Handoff:** Per explicit instruction, this session stops after Task 3 for QA. See
+  `.ai-company/HANDOFF_PROTOCOL.md` fields below.
+
+## Handoff — Milestone 2, Dev Task 3
+
+- **Milestone:** Milestone 2 — Translation Reliability
+- **Source documents read:** `CLAUDE.md`, `.ai-company/WORKFLOW.md`, `.ai-company/DEVELOPER.md`,
+  `docs/milestones/milestone-02/02-ARCHITECTURE.md` (all re-read this session per operator
+  instruction, §2–§4/§6/§8 rows 3 and "New helper ... translateLingva" specifically), plus
+  (re-confirmed from context established earlier this milestone) `.ai-company/CODING_STANDARDS.md`,
+  `.ai-company/GIT_RULES.md`, `.ai-company/TESTING_STANDARDS.md`,
+  `docs/milestones/milestone-02/01-PM-SPEC.md` (Status: APPROVED),
+  `docs/milestones/milestone-02/04-QA-REPORT.md` (confirmed Dev Task 2 QA pass: PASS, one
+  Low-severity documentation nit, no unresolved Critical/High defects), and the current
+  `index.html` (re-read lines 305–360, the exact region modified, before editing).
+- **Scope completed:** Dev Task 3 only (of 8 total, per `02-ARCHITECTURE.md` §8's Developer task
+  order) — `translateSentenceReliable()` and `translateLingva()` added as described above. Tasks
+  4–8 not started. (Numbering here follows the table's row order as Dev Tasks 1–8 have been
+  executed so far: Task 1 = row 1 + the two "New helper" rows for `fetchWithTimeout`/
+  `runWithConcurrency`; Task 2 = row 2 (`simpleTranslate`); Task 3 = row 3
+  (`translateSentenceReliable`) + the "New helper" row for `translateLingva`, per the same
+  bundling pattern as Task 1.)
+- **Files changed:** `index.html` only.
+- **Commits created:** `1563cef` — "Add: translateSentenceReliable() and translateLingva() —
+  Milestone 2 Dev Task 3".
+- **Tests performed:** See "Tests performed" above — 36/36 assertions passed via a throwaway jsdom
+  script; new-code and regression checks both included.
+- **Unresolved risks:** None new. Carrying forward from `02-ARCHITECTURE.md` §10: the MyMemory
+  email-quota option, the pre-existing translation-privacy gap, the read-coverage caveat, and
+  Lingva instance-list staleness. Newly noted: `translateSentenceReliable`/`translateLingva` are
+  fully implemented but entirely unused until Dev Task 8 wires `analyze()` to call them — QA should
+  expect them to be dormant/unreachable from the UI in this pass, by design, not as a defect. The
+  Dev Task 2 bridge in `translateSentence()` (with the relocated placeholder string, per QA's
+  DOC-1 finding) is still in place and still unremoved — it is retired by Dev Task 8's `analyze()`
+  rewrite, not this task.
+- **Next agent:** QA Engineer.
+- **Explicit stop point:** Awaiting QA review of Dev Task 3 (commit `1563cef`) before any further
+  Development work (Dev Task 4/8) on this milestone.
+
 ## Handoff log
 
 _(Handoffs per `.ai-company/HANDOFF_PROTOCOL.md` appended here in chronological order.)_
 
 1. Dev Task 1 handoff — see above (2026-08-06).
-2. Dev Task 2 handoff — see immediately above (2026-08-06).
+2. Dev Task 2 handoff — see above (2026-08-06).
+3. Dev Task 3 handoff — see immediately above (2026-08-06).
