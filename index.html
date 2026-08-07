@@ -308,6 +308,10 @@ const state={analysis:null,active:"overview"};
 // Milestone 2 (Translation Reliability) scaffolding — see docs/milestones/milestone-02/02-ARCHITECTURE.md §2-§4.
 const CONCURRENCY_LIMIT=3, REQUEST_TIMEOUT_MS=8000, RETRY_BACKOFF_MS=800;
 const translationCache=new Map();
+// Milestone 2 Dev Task 3 — see docs/milestones/milestone-02/02-ARCHITECTURE.md §6. Ordered list of
+// keyless, CORS-friendly Lingva Translate mirrors (never a single instance, per §6's requirement
+// that a single mirror's outage must not take down the whole fallback tier).
+const LINGVA_INSTANCES=["translate.plausibility.cloud","lingva.garudalinux.org"];
 function fetchWithTimeout(url,ms){
  const controller=new AbortController();
  const timer=setTimeout(()=>controller.abort(),ms);
@@ -350,6 +354,71 @@ function simpleTranslate(s){
 // external contract (returns a string, identical output to before Dev Task 2) is unchanged —
 // not a scope expansion into Task 3's work.
 async function translateSentence(s){try{const url="https://api.mymemory.translated.net/get?q="+encodeURIComponent(s)+"&langpair=en|ko";const res=await fetch(url);if(!res.ok)throw new Error("translation failed");const data=await res.json();const translated=data?.responseData?.translatedText;if(translated&&translated.toLowerCase()!==s.toLowerCase())return translated}catch(e){}const r=simpleTranslate(s);return r.matched?r.ko:"번역 서비스를 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 다시 분석해 주세요."}
+// Milestone 2 Dev Task 3 — see docs/milestones/milestone-02/02-ARCHITECTURE.md §6/§8 row "New
+// helper ... translateLingva(s)". Tries each configured Lingva instance in order; returns null on
+// total failure so the caller (translateSentenceReliable) falls through to the phrase map. Each
+// attempt is wrapped by fetchWithTimeout, per §3's "each network attempt" requirement.
+async function translateLingva(s){
+ for(const host of LINGVA_INSTANCES){
+  try{
+   const url="https://"+host+"/api/v1/en/ko/"+encodeURIComponent(s);
+   const res=await fetchWithTimeout(url,REQUEST_TIMEOUT_MS);
+   if(!res.ok)continue;
+   const data=await res.json();
+   if(data&&typeof data.translation==="string"&&data.translation.trim())return data.translation;
+  }catch(e){}
+ }
+ return null;
+}
+// Milestone 2 Dev Task 3 — see docs/milestones/milestone-02/02-ARCHITECTURE.md §2-§4/§6/§8 row 3.
+// Full provider chain: cache (unless bypassed) → MyMemory attempt 1 → RETRY_BACKOFF_MS backoff →
+// MyMemory attempt 2 → Lingva (ordered instance list) → simpleTranslate(). Returns a structured
+// {ko, status:'success'|'error', source} result and writes only successful results into
+// translationCache, per §4's "only successful results are cached" rule.
+//
+// NOT YET WIRED IN: analyze() still calls the original translateSentence() above (Dev Task 2's
+// bridge), and simpleTranslate()/translationCache/fetchWithTimeout/runWithConcurrency remain
+// otherwise exactly as Dev Tasks 1–2 left them. This function is additive and currently unused —
+// intentionally dormant, exactly like fetchWithTimeout/runWithConcurrency were after Dev Task 1 —
+// until Dev Task 8 rewrites analyze() to dispatch through runWithConcurrency and consume this
+// function's {ko,status,source} shape per sentence. Implementing that wiring now would be Dev
+// Task 8's work, not Task 3's; see 03-IMPLEMENTATION-LOG.md for the full rationale.
+async function translateSentenceReliable(s,{bypassCache=false}={}){
+ if(!bypassCache&&translationCache.has(s))return translationCache.get(s);
+ async function tryMyMemory(){
+  const url="https://api.mymemory.translated.net/get?q="+encodeURIComponent(s)+"&langpair=en|ko";
+  const res=await fetchWithTimeout(url,REQUEST_TIMEOUT_MS);
+  if(!res.ok)throw new Error("mymemory http error");
+  const data=await res.json();
+  const translated=data?.responseData?.translatedText;
+  if(translated&&translated.toLowerCase()!==s.toLowerCase())return translated;
+  throw new Error("mymemory returned no usable translation");
+ }
+ let result=null,source=null;
+ try{
+  result=await tryMyMemory();source="mymemory";
+ }catch(e1){
+  await new Promise(r=>setTimeout(r,RETRY_BACKOFF_MS));
+  try{
+   result=await tryMyMemory();source="mymemory";
+  }catch(e2){
+   const lingva=await translateLingva(s);
+   if(lingva){result=lingva;source="lingva";}
+  }
+ }
+ if(result){
+  const success={ko:result,status:"success",source};
+  translationCache.set(s,success);
+  return success;
+ }
+ const phrase=simpleTranslate(s);
+ if(phrase.matched){
+  const success={ko:phrase.ko,status:"success",source:"phrasemap"};
+  translationCache.set(s,success);
+  return success;
+ }
+ return {ko:null,status:"error",source:null};
+}
 function fallbackKoreanGloss(w){
  const map={
   epidemiological:"역학의, 질병 발생과 분포를 연구하는",immunocompromised:"면역력이 저하된",gastrointestinal:"위장관의",
