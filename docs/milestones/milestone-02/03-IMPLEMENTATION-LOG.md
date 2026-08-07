@@ -547,6 +547,178 @@ commit per logical task, stopping for CEO approval after each task per explicit 
 - **Explicit stop point:** Awaiting independent QA review of Dev Task 5 (commit `284ea76`) before
   any further Development work on this milestone.
 
+### Session: 2026-08-06 — Dev Task 6: analyze() progressive dispatch + updateTranslationRow + retrySentence
+
+- **Scope addressed:** `02-ARCHITECTURE.md` §8's `analyze()` row, the `updateTranslationRow(i)`
+  row, and the `retrySentence(i)` row (§2/§3/§5/§7 provide the underlying design). This is the
+  point at which the whole translation-reliability feature actually goes live. QA passed Dev Task
+  5 first (see `04-QA-REPORT.md`, QA pass 2026-08-06 against `284ea76`/`911735e`).
+- **What was implemented:**
+  - **`analyze()` rewrite:** `translations` is now built in its `'loading'` shape
+    (`{en, ko:null, status:'loading', source:null}`) immediately after `vocab`/`phrases`/`questions`
+    are computed (unchanged). `state.analysis` is assigned with all fields real except
+    `translations` (still loading), then `render()` is called once immediately — since Dev Task 5
+    already wired `translation(a)` to `translationRowTemplate`, this render genuinely shows a
+    correct overview/vocab/phrases/SAT tab plus a real translation-tab loading skeleton, not a
+    blocking wait. The old `Promise.all(sents.map(s=>translateSentence(s)))` is replaced by
+    `runWithConcurrency(sents, CONCURRENCY_LIMIT, async(s,i)=>{...})`, where each worker calls
+    `translateSentenceReliable(s)` (Dev Task 3), mutates `translations[i]` in place, and calls
+    `updateTranslationRow(i)`. `#status` now shows a progressive counter
+    (`"한글 번역 진행 중… (N/M 완료)"`) during translation, then a final summary that surfaces a
+    failure count when nonzero (`"분석 완료 · N문장 · M개 핵심어휘 · 번역 K건 실패"`), per §5's exact
+    wording. `analyzeBtn`'s disable/enable and the `finally` block are byte-identical in structure
+    to before — the `await runWithConcurrency(...)` stays inside the `try`, so the button remains
+    disabled for the whole translation phase, preserving Milestone 1's overlap guard exactly as
+    instructed.
+  - **`updateTranslationRow(i)`:** patches only the DOM node for row `i` (found via the `data-i`
+    attribute `translationRowTemplate` has rendered since Dev Task 4) when
+    `state.active==='translation'`; no-ops otherwise. Added one defensive no-op the architecture
+    text doesn't explicitly call out: if the target node can't be found (e.g. `render()` hasn't
+    happened yet for some reason), it returns instead of throwing — flagged here per
+    `.ai-company/DEVELOPER.md`'s "stop and flag it" rule, since it's a necessary robustness
+    addition, not a behavior change to anything specified.
+  - **`retrySentence(i)`:** re-runs `translateSentenceReliable(a.translations[i].en,
+    {bypassCache:true})` for one sentence, updates that entry, and calls `updateTranslationRow(i)`
+    — exactly the three steps §8 describes, wired to the `다시 시도` button Dev Task 4 already
+    rendered into error rows.
+  - **Removed the old `translateSentence()` function** (and its Dev Task 2 bridge comment/TODO).
+    `grep` confirms zero remaining references anywhere in the file. This is the point Dev Tasks 2
+    and 3's logs both anticipated ("it is retired by [whichever task] rewires `analyze()`") — that
+    task turned out to be this one, numbered Task 6 in this session's sequence rather than "Task 8"
+    as those earlier logs guessed, since Dev Task 3 already absorbed two architecture-table rows
+    and Dev Task 1 absorbed three. Also updated the now-stale "NOT YET WIRED IN" comment above
+    `translateSentenceReliable` to reflect current reality.
+- **Bundling rationale (flagged explicitly):** `analyze()`'s rewrite hard-requires
+  `updateTranslationRow` to exist (it's called directly from the new worker callback), so those two
+  could not be split across tasks. `retrySentence(i)` was bundled in for a different, disclosed
+  reason: Dev Task 4 already rendered a live `다시 시도` button (`onclick="retrySentence(i)"`) into
+  error rows; once `analyze()` can produce real `status:'error'` rows in production (which it now
+  can, as of this task), leaving `retrySentence` unimplemented would ship a button that throws a
+  `ReferenceError` when clicked — a real, immediately-reachable dead-button defect, not a
+  theoretical one like Dev Task 4's ROBUST-1. Closing that gap in the same commit avoids
+  introducing a known regression window, consistent with `.ai-company/GIT_RULES.md` rule 1.
+- **ROBUST-1 status re-examined, deliberately not fixed here:** `04-QA-REPORT.md`'s Dev Task 5 pass
+  recommended fixing `translationRowTemplate`'s `x.ko` null/undefined guard "no later than
+  whichever task first makes `analyze()` capable of producing a `status:'success'` object" — this
+  task is exactly that trigger point. However, re-verified that `translateSentenceReliable`'s own
+  contract (Dev Task 3) still guarantees `status:'success'` is only ever returned together with a
+  real string `ko` (both of its success branches set `ko` from an actual provider/phrase-map
+  result); `analyze()`'s `Object.assign(translations[i], {ko:r.ko, status:r.status, source:r.source})`
+  simply passes that guarantee through unchanged. So even after this task, no code path constructs
+  the malformed shape ROBUST-1 describes — it remains exactly as unreachable as QA last assessed.
+  Deliberately did **not** add the defensive guard anyway, despite it being cheap: doing so would
+  require editing `translationRowTemplate`, a Dev Task 4 function, which is outside this task's
+  named scope (`analyze()`/`updateTranslationRow`/`retrySentence`) — per explicit instruction to
+  "implement ONLY Task 6" and "do not touch unrelated code." Carried forward again, unchanged.
+- **New risk discovered during testing (flagged, not fixed — outside Task 6's scope):**
+  `saveCurrent()` (unmodified, pre-Milestone-2 function) spreads `state.analysis` — including
+  `translations` — directly into `localStorage` whenever the user clicks "학습자료 저장," with no
+  awareness of whether translation is still in progress. Before this task, `state.analysis` was
+  only ever assigned once every translation had already resolved, so this was never reachable. As
+  of this task's progressive-rendering design, `state.analysis` is assigned *before* translations
+  resolve — meaning a user who saves while translations are still `'loading'` will persist entries
+  with `ko:null, status:'loading'` into their saved study set. **Confirmed by direct test:**
+  reopening such a saved item via `loadSaved()` renders a permanently stuck `"번역 중…"` skeleton
+  row with **no retry button** (only `status:'error'` rows render one), since neither `loadSaved()`
+  nor `translationRowTemplate` currently has any path to recover a stuck `'loading'` entry. This is
+  a newly-introduced, realistically-reachable gap — not a crash or data loss (the rest of the saved
+  analysis is intact and usable), but a dead end for that specific sentence. **Not fixed here**:
+  the fix would need to touch `saveCurrent()` and/or `loadSaved()` (§8's separate, not-yet-started
+  `loadSaved()` defensive-read row) and/or `translationRowTemplate` (also give a retry affordance
+  to stuck `'loading'` rows, e.g. treating them the same as `'error'` after some threshold, or
+  simply disabling/warning on save while any entry is still `'loading'`) — none of which are Dev
+  Task 6's named scope. Logged here per `CLAUDE.md`'s "never silently change scope... log it...
+  hand it upward" rule, for the CEO/Architect to prioritize as a new item (most naturally folded
+  into the existing `loadSaved()` task, or a new one).
+- **Files changed:** `index.html` (55 lines added, 19 removed — confirmed via `git show 9dd5ae8
+  --stat`). Only the `simpleTranslate`/`translateSentenceReliable` comment blocks, the old
+  `translateSentence()` removal, and `analyze()` plus its two new sibling functions were touched;
+  vocab/phrase/question computation logic, `translation(a)`, `translationRowTemplate`, and every
+  other function are byte-identical to before.
+- **Commits:**
+  - `9dd5ae8` — "Add: analyze() progressive translation dispatch, updateTranslationRow(),
+    retrySentence() — Milestone 2 Dev Task 6"
+- **Tests performed (per `.ai-company/TESTING_STANDARDS.md`):** Throwaway jsdom script (not
+  committed, per standard) loading the actual `index.html`, filling in the real `#passage`/
+  `#title`/`#grade`/`#qcount` form fields, and calling `analyze()` end-to-end against a mocked
+  `fetch` — not just unit-testing isolated functions:
+  - `state.analysis` is assigned early (before any translation resolves) with `vocab`/`phrases`/
+    `questions` already fully populated and every translation entry in `'loading'` status;
+    `analyzeBtn` is disabled and `#status` shows the progressive counter during this window.
+  - Bounded concurrency verified end-to-end through `analyze()` itself (not just
+    `runWithConcurrency` in isolation, as Dev Task 1 tested): never exceeded `CONCURRENCY_LIMIT`
+    simultaneous mocked `fetch` calls across an 8-sentence passage.
+  - On completion: every translation reaches `status:'success'` with real `ko` text from the
+    mocked provider; `analyzeBtn` is only re-enabled after the full pool settles; `#status` shows
+    the correct final summary, with no failure mention when there were none.
+  - A total-failure sentence (no network, no phrase-map match) ends in `status:'error'`,
+    `ko:null`; `#status` correctly surfaces `"번역 1건 실패"`; switching to the translation tab
+    renders the explicit error row, never `"(null)"` and never the old placeholder string.
+  - `updateTranslationRow`: verified DOM patching actually occurs when a user switches to the
+    translation tab mid-analysis (simulated realistically — not just calling the function directly
+    with a hand-built object); confirmed no-op when the tab isn't active; confirmed no-throw when
+    the target node is missing.
+  - `retrySentence`: verified it flips a failed sentence to success and patches its row live;
+    verified it uses `bypassCache:true` (still hits the network even when a cache entry already
+    exists for that sentence).
+  - Security: malicious text returned by the (mocked) translation provider is still escaped
+    end-to-end through the full live `analyze()` → `translation(a)` → `translationRowTemplate`
+    pipeline, not just at the unit level.
+  - Regression: the overview tab still renders correctly after a full `analyze()` run; Dev Tasks
+    1–4's constants/functions/contracts all confirmed unchanged.
+  - **Result: all 30 assertions passed** (one assertion needed correction mid-session: it assumed
+    `state.active` would remain `'translation'` through an entire `analyze()` call, but `analyze()`
+    itself always resets `state.active` to `"overview"` partway through — existing, unchanged
+    Milestone 1 behavior. The test was corrected to simulate a realistic mid-analysis tab switch
+    instead, which is what actually exercises `updateTranslationRow`'s live-patching path). A
+    separate, additional script investigated and confirmed the save-mid-analysis finding above.
+    Both scripts kept as local scratch files only, not committed to the repository, per
+    `TESTING_STANDARDS.md`.
+- **Deviations from architecture:** None to the specified behavior of `analyze()`/
+  `updateTranslationRow`/`retrySentence` — all three match §2/§3/§5/§7/§8 exactly. The bundling of
+  `retrySentence` into this task, and the decision not to fix ROBUST-1 here, are both disclosed
+  judgment calls, not silent deviations.
+- **Working tree note:** `docs/milestones/milestone-02/01-PM-SPEC.md`, `02-ARCHITECTURE.md`, and
+  `04-QA-REPORT.md` continue to carry the same pre-existing uncommitted content noted in prior
+  session entries; left untouched again this session for the same role-separation reason.
+- **Operational note:** none this session — no stale `.git/index.lock` encountered.
+- **Handoff:** Per explicit instruction, this session stops after Task 6 for independent QA. See
+  `.ai-company/HANDOFF_PROTOCOL.md` fields below.
+
+## Handoff — Milestone 2, Dev Task 6
+
+- **Milestone:** Milestone 2 — Translation Reliability
+- **Source documents read:** `CLAUDE.md`, `.ai-company/WORKFLOW.md`, `.ai-company/DEVELOPER.md`,
+  `.ai-company/CODING_STANDARDS.md`, `.ai-company/TESTING_STANDARDS.md`,
+  `docs/milestones/milestone-02/02-ARCHITECTURE.md` (§2/§3/§5/§7/§8 specifically re-read),
+  `docs/milestones/milestone-02/03-IMPLEMENTATION-LOG.md`, and
+  `docs/milestones/milestone-02/04-QA-REPORT.md` (all re-read this session per operator
+  instruction — confirmed Dev Task 5 QA pass: PASS, with ROBUST-1's reachability re-assessed and
+  kept Low, and the latency/duplicate-request items still open), and the current `index.html`
+  (re-read the full `analyze()` function and surrounding comments before editing).
+- **Scope completed:** Dev Task 6 only — `analyze()` rewritten for progressive dispatch,
+  `updateTranslationRow(i)` and `retrySentence(i)` added, old `translateSentence()` removed as dead
+  code. `loadSaved()`'s defensive read and the CSS style-block additions remain not started, plus
+  the newly-discovered save-mid-analysis gap noted above.
+- **Files changed:** `index.html` only.
+- **Commits created:** `9dd5ae8` — "Add: analyze() progressive translation dispatch,
+  updateTranslationRow(), retrySentence() — Milestone 2 Dev Task 6".
+- **Tests performed:** See "Tests performed" above — 30/30 assertions passed via a throwaway jsdom
+  script exercising the real, end-to-end `analyze()` flow; a second scratch script confirmed the
+  save-mid-analysis finding.
+- **Unresolved risks:** DOC-1 and ROBUST-1 (both Low) remain open and deferrable, status
+  re-confirmed unchanged by this task. The ~33s worst-case provider-chain latency is **no longer
+  purely theoretical** — `translateSentenceReliable` is now genuinely reachable from production use
+  of `analyze()`; QA should re-assess this against real usage now that it's live. Duplicate
+  in-flight requests for identical sentences: also now live-reachable for the first time (a passage
+  with a repeated sentence, translated concurrently, could double-fire) — previously only a
+  theoretical concern about future wiring, now an actual property of shipped code; recommend QA
+  specifically test this scenario. **New: the save-mid-analysis stuck-loading-row gap**, detailed
+  above, not fixed in this task, needs a CEO/Architect decision on which task absorbs the fix.
+- **Next agent:** QA Engineer (independent QA, per explicit instruction).
+- **Explicit stop point:** Awaiting independent QA review of Dev Task 6 (commit `9dd5ae8`) before
+  any further Development work on this milestone.
+
 ## Handoff log
 
 _(Handoffs per `.ai-company/HANDOFF_PROTOCOL.md` appended here in chronological order.)_
@@ -555,4 +727,5 @@ _(Handoffs per `.ai-company/HANDOFF_PROTOCOL.md` appended here in chronological 
 2. Dev Task 2 handoff — see above (2026-08-06).
 3. Dev Task 3 handoff — see above (2026-08-06).
 4. Dev Task 4 handoff — see above (2026-08-06).
-5. Dev Task 5 handoff — see immediately above (2026-08-06).
+5. Dev Task 5 handoff — see above (2026-08-06).
+6. Dev Task 6 handoff — see immediately above (2026-08-06).
