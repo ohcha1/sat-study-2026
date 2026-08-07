@@ -53,6 +53,19 @@ textarea{min-height:480px;resize:vertical;line-height:1.65}
 .card h3{font-size:15px;color:var(--navy);margin:0 0 10px}
 .bilingual{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .sentence{padding:10px 0;border-bottom:1px dashed #D1D5DB}.sentence:last-child{border-bottom:none}
+/* Milestone 2 Dev Task 8 — see docs/milestones/milestone-02/02-ARCHITECTURE.md §8's <style> block
+   row: ".sentence.loading" (skeleton/spinner treatment) and ".sentence.error" (warning-colored
+   variant + retry button styling), following the existing c-blue/c-pink/c-mint card-color
+   convention (reusing the --sky token already defined for the loading state's background and the
+   --danger token already defined in :root for the error state's accent, rather than introducing
+   new color values). translationRowTemplate (Dev Task 4) already emits class="sentence loading"
+   and class="sentence error" — this is a pure CSS addition, no JS/template change needed. */
+.sentence.loading{background:var(--sky);border-radius:9px;padding:12px 14px;margin:4px 0;border-bottom:none;animation:sentencePulse 1.4s ease-in-out infinite}
+.sentence.loading .ko{color:var(--navy2)}
+@keyframes sentencePulse{0%,100%{opacity:1}50%{opacity:.5}}
+.sentence.error{background:rgba(185,28,28,.06);border-left:3px solid var(--danger);border-radius:9px;padding:12px 14px;margin:4px 0;border-bottom:none}
+.sentence.error .ko{color:var(--danger);font-weight:700}
+.sentence.error .btn{margin-top:8px}
 .en{font-weight:650;line-height:1.55}.ko{color:#475569;line-height:1.55;margin-top:5px}
 .word-card{display:grid;grid-template-columns:110px 105px 1fr;gap:18px;align-items:start}
 .word-card>div:last-child{line-height:1.8}.word-card b{display:inline-block;margin-top:3px;margin-right:7px}.meaning-block{margin:10px 0 14px;padding:10px 12px;border-radius:9px;background:#F8FAFC}.meaning-block+.meaning-block{margin-top:14px}
