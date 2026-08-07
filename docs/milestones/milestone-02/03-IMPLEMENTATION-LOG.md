@@ -719,6 +719,90 @@ commit per logical task, stopping for CEO approval after each task per explicit 
 - **Explicit stop point:** Awaiting independent QA review of Dev Task 6 (commit `9dd5ae8`) before
   any further Development work on this milestone.
 
+### Session: 2026-08-06 — Bug fix: SAVE-1 (High) — saveCurrent() could persist 'loading' translations
+
+- **Scope addressed:** Independent QA's Dev Task 6 review (`04-QA-REPORT.md`, QA pass against
+  `9dd5ae8`/`a7df167`) found defect **SAVE-1 (High)**: because Dev Task 6 assigns `state.analysis`
+  and calls `render()` before translations resolve (by design, for progressive rendering),
+  `saveCurrent()` — unmodified since before Milestone 2 — could persist a study set whose
+  `translations` were still in their `{status:'loading', ko:null}` shape. Reopening such a save via
+  `loadSaved()` rendered a permanently stuck `"번역 중…"` row with **no retry button** (only
+  `status:'error'` rows render one in `translationRowTemplate`), leaving no recovery path. Per the
+  CEO's explicit decision, this session fixes **only** SAVE-1 — no Dev Task 7 work is included.
+- **Solution chosen (of the three CEO-approved options):** "Prevent Save while any translation is
+  loading." Chosen over "wait until translations finish before saving" (would require tracking the
+  in-flight `analyze()` promise as new state — more invasive) and "save only completed translations
+  and mark incomplete items recoverable" (would require changing the saved data shape and/or
+  `translationRowTemplate`'s rendering rules — broader surface). The chosen option is the narrowest
+  possible fix: a single guard clause inside `saveCurrent()` itself, touching no other function and
+  requiring no new data shape.
+- **What was implemented:** `saveCurrent()` now checks
+  `state.analysis.translations.some(t=>t.status==="loading")` immediately after its existing
+  `!state.analysis` guard; if true, it shows a toast ("한글 번역이 진행 중입니다. 번역이 완료된 후
+  저장해 주세요.") and returns without saving — mirroring the existing early-return pattern already
+  used one line above it. `status:'error'` entries are deliberately **not** blocked — they were
+  never SAVE-1's problem, since `translationRowTemplate` already renders a working retry button for
+  `'error'` regardless of when the item is reopened; only `'loading'` entries had no recovery path.
+- **Files changed:** `index.html` (12 lines added, 0 removed — confirmed via `git show a86f8e0
+  --stat`). Only `saveCurrent()`'s guard clause and its preceding explanatory comment were added;
+  no other function modified.
+- **Commits:**
+  - `a86f8e0` — "Fix: SAVE-1 (High) — saveCurrent() could persist translations still in 'loading'
+    state"
+- **Tests performed (per `.ai-company/TESTING_STANDARDS.md`):** Throwaway jsdom script (not
+  committed, per standard), testing against the real `saveCurrent()`/`loadSaved()`/`analyze()`
+  functions, not isolated units:
+  - Confirmed the fix: calling `saveCurrent()` while translations are genuinely still `'loading'`
+    (fetch mocked to never resolve) adds nothing to the saved list.
+  - Confirmed normal saving still works once translations complete, and the saved item's
+    translations are the real, resolved values.
+  - Confirmed `saveCurrent()` is **not** blocked by `status:'error'` entries — only `'loading'`
+    triggers the guard.
+  - Confirmed retry on a reopened saved item with an `'error'` entry still works end-to-end
+    (`retrySentence` behavior unchanged).
+  - Confirmed backward compatibility: a simulated pre-Milestone-2 saved item (no `status` field at
+    all on its translations) still loads and renders correctly — this fix does not touch
+    `loadSaved()` or the load path at all.
+  - Regression: re-verified Dev Task 6's own behavior is fully intact — progressive rendering
+    (`state.analysis` assigned early with `'loading'` translations), the concurrency limit,
+    `analyzeBtn`'s disable/enable timing, and the final `#status` summary are all unchanged.
+  - **Result: all 15 assertions passed.** Script kept as a local scratch file only, not committed
+    to the repository, per `TESTING_STANDARDS.md`.
+- **Deviations from architecture:** None — this is a bug fix responding to a QA-found defect, not
+  an architecture-scoped task; per `.ai-company/DEVELOPER.md` item 5 ("address only the reported
+  defects within scope — don't use it as an opportunity to make unrelated changes"), no Task 7
+  functionality was implemented and no other function was touched.
+- **Working tree note:** `docs/milestones/milestone-02/01-PM-SPEC.md`, `02-ARCHITECTURE.md`, and
+  `04-QA-REPORT.md` continue to carry the same pre-existing uncommitted content noted in prior
+  session entries; left untouched again this session for the same role-separation reason.
+- **Operational note:** none this session — no stale `.git/index.lock` encountered.
+- **Handoff:** Per explicit instruction, this session stops after the SAVE-1 fix for independent
+  QA. See `.ai-company/HANDOFF_PROTOCOL.md` fields below.
+
+## Handoff — Milestone 2, Bug fix SAVE-1
+
+- **Milestone:** Milestone 2 — Translation Reliability
+- **Source documents read:** `CLAUDE.md`, `.ai-company/WORKFLOW.md`, `.ai-company/DEVELOPER.md`,
+  `docs/milestones/milestone-02/04-QA-REPORT.md` (the Dev Task 6 QA pass reporting SAVE-1, read in
+  full for exact reproduction steps and severity rationale), and the current `index.html`
+  (`saveCurrent()`, `loadSaved()`, and `translationRowTemplate()`, re-read before editing).
+- **Scope completed:** SAVE-1 only, per explicit CEO decision. No Dev Task 7 work started.
+- **Files changed:** `index.html` only.
+- **Commits created:** `a86f8e0` — "Fix: SAVE-1 (High) — saveCurrent() could persist translations
+  still in 'loading' state".
+- **Tests performed:** See "Tests performed" above — 15/15 assertions passed via a throwaway jsdom
+  script covering the fix itself, the unaffected `'error'`-entry save path, retry-after-reload,
+  backward compatibility with pre-Milestone-2 saves, and full Dev Task 6 regression.
+- **Unresolved risks:** The two Low-severity items from the Dev Task 6 QA pass (worst-case
+  provider latency — informational, confirmed expected; duplicate in-flight requests for identical
+  sentences — Low, cosmetic quota inefficiency) are unaffected by this fix and remain open,
+  deferrable per `.ai-company/DEFINITION_OF_DONE.md`. DOC-1 and ROBUST-1 (both Low, from earlier
+  passes) also remain open, unaffected. Dev Task 7 (and the still-unstarted `loadSaved()`
+  defensive-read and CSS style-block work) remain not started.
+- **Next agent:** QA Engineer (independent QA, per explicit instruction).
+- **Explicit stop point:** Awaiting independent QA review of the SAVE-1 fix (commit `a86f8e0`)
+  before Dev Task 7 may begin.
+
 ## Handoff log
 
 _(Handoffs per `.ai-company/HANDOFF_PROTOCOL.md` appended here in chronological order.)_
@@ -728,4 +812,5 @@ _(Handoffs per `.ai-company/HANDOFF_PROTOCOL.md` appended here in chronological 
 3. Dev Task 3 handoff — see above (2026-08-06).
 4. Dev Task 4 handoff — see above (2026-08-06).
 5. Dev Task 5 handoff — see above (2026-08-06).
-6. Dev Task 6 handoff — see immediately above (2026-08-06).
+6. Dev Task 6 handoff — see above (2026-08-06).
+7. Bug fix SAVE-1 handoff — see immediately above (2026-08-06).
