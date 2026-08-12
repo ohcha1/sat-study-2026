@@ -2296,7 +2296,19 @@ function safeMorphologyBase(w){
  for(const c of candidates){ if(c&&(dictionary[c]||supplementalVocab[c]||broadVocabLexicon[c])) return c; }
  return null;
 }
+// Fix (Risk C, QA-identified): a second analyze() call while one is already running could
+// reassign state.analysis out from under the first call's still-in-flight translation loop,
+// silently discarding its results and, if the Translation tab was open with differing sentence
+// counts, throwing inside updateTranslationRow(). Guarded with a simple in-flight flag checked
+// synchronously at the very top of the function (before any await, so there is no race window in
+// JS's single-threaded event loop) — a second call while one is active is a silent no-op, exactly
+// as if the click hadn't happened. try/finally guarantees the flag always clears, even on error,
+// so a thrown exception can never leave analyze() permanently unusable.
+let analyzeInFlight=false;
 async function analyze(){
+ if(analyzeInFlight)return;
+ analyzeInFlight=true;
+ try{
  const text=document.getElementById("passage").value.trim();
  if(!text){toast("영어 지문을 입력해 주세요.");return}
  mymemoryRateLimited=false; // fresh retry chance for each new analysis run; translationCache itself is NOT cleared, so identical sentences from earlier analyses stay cached
@@ -2380,6 +2392,9 @@ async function analyze(){
  const failedCount=translations.filter(t=>t.status==="error").length;
  document.getElementById("status").textContent=`분석 완료 · ${sents.length}문장 · ${vocab.length}개 핵심어휘`+(failedCount?` · 번역 ${failedCount}건 실패`:"");
  if(state.active==="overview") render();
+ }finally{
+   analyzeInFlight=false;
+ }
 }
 function englishOnly(s,fallback="The passage provides relevant evidence for its central claim."){
  const cleaned=String(s||"").replace(/[가-힣ㄱ-ㅎㅏ-ㅣ]/g,"").replace(/\s+/g," ").trim();
