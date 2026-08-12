@@ -162,6 +162,15 @@ gate are the only remaining steps — this milestone has not been pushed or merg
 
 ## Milestone 3 — Dictionary Upgrade
 
+**Correction (recorded by Milestone 4's PM-Spec, 2026-08-12):** the "~40-word" figure below was
+stale even when Milestone 3's own work began — direct code inspection found the actual baseline is
+~1,141 curated words across `dictionary`/`supplementalVocab`/`broadVocabLexicon` combined, plus
+~49,000 IPA entries (curated + a bundled CMU Pronouncing Dictionary conversion). See
+`docs/milestones/milestone-04/01-PM-SPEC.md` §2 for the full finding. This does not change this
+section's original goal/scope — a scalable vocabulary source is still a legitimate goal — only the
+size of the problem it was solving. Original text preserved below, per
+`.ai-company/WORKFLOW.md`'s append-not-hide rule.
+
 Goal: replace the ~40-word hardcoded dictionary and grade-level heuristics with a scalable vocabulary source.
 
 - Integrate a real dictionary data source (API or a substantially larger local word list) to replace `dictionary`, `ipaMap`, and `exampleBank`.
@@ -170,6 +179,50 @@ Goal: replace the ~40-word hardcoded dictionary and grade-level heuristics with 
 - Ensure vocabulary and IPA lookups scale to arbitrary passages without visibly degrading to "no data" for common academic words.
 
 Exit criteria: vocabulary tab produces real, sourced definitions for a representative set of test passages outside the current dictionary's coverage.
+
+## Milestone "4" numbering note (Vocabulary Experience Upgrade track)
+
+A second body of work also uses the label "Milestone 4": **Dictionary / Vocabulary Experience
+Upgrade**, tracked under `docs/milestones/milestone-04/` on branch `feature/vocab-experience-upgrade`
+(forked from `main` post-Milestone-3-merge, not from this document's numbered sequence — same
+pattern as the Gold Master Adoption track's relationship to this document's "Milestone 3"). Per the
+CEO's direction recorded in `docs/milestones/milestone-04/01-PM-SPEC.md` §9, this reuses/updates
+Milestone 3's dictionary assets (§ above) rather than duplicating or superseding that milestone's
+scope wholesale — it prioritizes Dictionary Card UX, Word Book, and Review state over further
+dictionary data expansion. The "Milestone 4 — UI Improvements" section immediately below is
+unrelated to it and unchanged by it.
+
+## Milestone 4 (Vocabulary Experience Upgrade track) — Dictionary / Vocabulary Experience Upgrade
+
+Goal: make the existing, already-substantial vocabulary data (§ Milestone 3 above) actually useful
+to a student — a richer per-word Dictionary Card, an explicit Word Book, simple review/learned
+tracking, and an honest curated-vs-general distinction — rather than growing the underlying word
+lists further. Full document set:
+`docs/milestones/milestone-04/{01-PM-SPEC,02-ARCHITECTURE,03-IMPLEMENTATION-LOG}.md`.
+
+- **Branch:** `feature/vocab-experience-upgrade`, forked from `main` post-Milestone-3 merge.
+- [x] Redesigned the Dictionary Card mobile-first (above/below-fold split via native `<details>`),
+  added a plain-language curated-vs-general-fallback tag, and a default "Important SAT Words" view
+  with a "Show all words" expansion (Dev Tasks 1-4).
+- [x] Word Book: explicit per-word save/unsave, reusing the existing `vocabularyProgress`
+  IndexedDB store with additive fields only (no schema change) via a single read-merge-write entry
+  point (Dev Task 5).
+- [x] Review/learned state: a simple new/reviewing/learned cycle per word, with a filtered Word Book
+  view — not a spaced-repetition engine (Dev Task 6).
+- [x] Optional Gemini "vocab-context" enhancement (why a word's meaning fits its sentence),
+  extending the existing `gemini` adapter with one new taskType — no new provider — dormant/fails
+  closed without a dev key; core Dictionary Card fully usable without it (Dev Task 7).
+- **Branding (CEO-approved):** title `SAT English Learning Studio 2026 — AI`, subtitle
+  `SAT Reading · Vocabulary · Grammar · AI Study Tools`, applied to `<title>`/`<h1>`/subtitle text.
+- **Preserved unmodified:** IndexedDB schema (still exactly 6 object stores), Multi-AI router,
+  Gemini Summary UI, Risk A/B/C fixes, PDF/photo import, all 7 responsive `@media` blocks.
+
+Exit criteria: met — see `docs/milestones/milestone-04/03-IMPLEMENTATION-LOG.md` for full
+verification detail per Dev Task.
+
+**Release status:** Development and a full regression pass are complete on
+`feature/vocab-experience-upgrade`, not yet pushed, merged, or released — QA/Principal Review/CEO
+push-approval have not yet occurred for this milestone.
 
 ## Milestone 4 — UI Improvements
 
