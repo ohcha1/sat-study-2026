@@ -2015,8 +2015,25 @@ async function translateSentenceReliable(s,{bypassCache=false}={}){
  const key=s.trim();
  if(!bypassCache&&translationCache.has(key)) return translationCache.get(key);
 
- // PRIMARY: Chrome built-in Translator (on-device, no network request) — Gold Master's addition, unchanged
- const translator=await getChromeTranslator();
+ // PRIMARY: Chrome built-in Translator (on-device, no network request) — Gold Master's addition.
+ // Hot-fix (QA Risk A): getChromeTranslator()'s Translator.availability()/create() call can hang
+ // indefinitely in some environments (confirmed in 04-QA-REPORT.md) with no rejection of its own,
+ // which would otherwise stall this entire sequential loop on sentence 1 forever. Race it against
+ // REQUEST_TIMEOUT_MS and fail open to MyMemory below on timeout — same timeout budget already used
+ // for the MyMemory/Lingva network tiers, no new constant introduced. On timeout, mark the state
+ // temporarily-failed (same semantics an init exception already produces) so later sentences in
+ // this same analyze() run don't each re-wait on the same still-hung promise; a fresh analyze() run
+ // retries Chrome, unchanged from the existing temporarily-failed behavior.
+ let translator=null;
+ try{
+   translator=await Promise.race([
+     getChromeTranslator(),
+     new Promise((_,reject)=>setTimeout(()=>reject(new Error("chrome translator init timeout")),REQUEST_TIMEOUT_MS))
+   ]);
+ }catch(e){
+   if(chromeTranslatorState==="initializing") chromeTranslatorState="temporarily-failed";
+   translator=null;
+ }
  if(translator){
    try{
      const result=await translator.translate(key);
@@ -4168,7 +4185,14 @@ function saveCurrent(){
  if(!state.analysis){toast("먼저 지문을 분석해 주세요.");return}
  if(state.analysis.translations.some(t=>t.status==="loading")){toast("한글 번역이 진행 중입니다. 번역이 완료된 후 저장해 주세요.");return}
  const list=getSavedList();
- const item={...state.analysis,id:Date.now()};
+ // Hot-fix (QA Risk B): Date.now() alone can collide on rapid consecutive saves (confirmed in
+ // 04-QA-REPORT.md — two saves at the same millisecond got the identical id, and deleting one then
+ // deleted both). Increment until unique against the current list instead; ids stay plain numbers,
+ // so every existing saved record (whatever id it already has) compares and loads exactly as
+ // before — no migration, no format change.
+ let id=Date.now();
+ while(list.some(x=>x.id===id))id++;
+ const item={...state.analysis,id};
  list.unshift(item);localStorage.setItem("satStudioSaved",JSON.stringify(list));toast("학습자료를 저장했습니다.");
  if(auth.userId) saveSessionForUser();
 }
