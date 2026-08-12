@@ -2296,6 +2296,39 @@ function safeMorphologyBase(w){
  for(const c of candidates){ if(c&&(dictionary[c]||supplementalVocab[c]||broadVocabLexicon[c])) return c; }
  return null;
 }
+// Milestone 4 Dev Task 1 — see docs/milestones/milestone-04/02-ARCHITECTURE.md §3.5. Extracted,
+// behavior-preserving, from analyze()'s previously-inline per-word lookup (dictionary ->
+// supplementalVocab -> broadVocabLexicon -> morphology-base -> generic fallback, same priority
+// order, same level-computation rule per tier). Standalone so it can be called for a bare word
+// string with no passage/analysis in memory (Word Book/Review Queue, Dev Tasks 5-6, need to
+// rebuild a full card for a word saved in a past session).
+function buildVocabCardData(word){
+ const w=word;
+ if(dictionary[w]) return {word:w,level:levelFor(w),data:dictionary[w]};
+ const lengthLevel=w.length>=11?12:w.length>=9?11:10;
+ if(supplementalVocab[w]) return {word:w,level:lengthLevel,data:supplementalVocab[w]};
+ if(broadVocabLexicon[w]) return {word:w,level:lengthLevel,data:broadVocabLexicon[w]};
+ const morphBase=safeMorphologyBase(w);
+ if(morphBase){
+   const baseData=dictionary[morphBase]||supplementalVocab[morphBase]||broadVocabLexicon[morphBase];
+   if(baseData) return {word:w,level:lengthLevel,data:baseData};
+ }
+ return {word:w,level:lengthLevel,data:buildFallbackVocabData(w)};
+}
+// Milestone 4 Dev Task 1 — generic-fallback card data, same fields/wording as the original inline
+// branch. One deliberate, called-out behavior difference: the original chose the fallback example
+// sentence by the word's position (forEach index) within that analysis run's batch of newly-added
+// words, so the exact same unmatched word could get a different generic example in different
+// analyses. buildVocabCardData() needs to work standalone for a bare word with no batch context
+// (Word Book/Review Queue), so the choice here is a deterministic function of the word itself —
+// the same word always gets the same generic example, which is also more consistent for a student
+// re-encountering it. Not a regression: the original per-run variation was incidental, not a
+// documented or tested behavior.
+function buildFallbackVocabData(w){
+ const idx=[...w].reduce((h,c)=>h+c.charCodeAt(0),0)%fallbackExamplePool.length;
+ const fallback=fallbackExamplePool[idx];
+ return ["academic or informational word","a word selected from the passage; use the linked learner dictionaries to confirm its exact sense in context",fallbackKoreanGloss(w),fallback[0].replaceAll("{word}",w),fallback[1].replaceAll("{word}",w),"see dictionary links for exact synonyms","an exact antonym may not exist; check the sense in context"];
+}
 // Fix (Risk C, QA-identified): a second analyze() call while one is already running could
 // reassign state.analysis out from under the first call's still-in-flight translation loop,
 // silently discarding its results and, if the Translation tab was open with differing sentence
@@ -2318,7 +2351,7 @@ async function analyze(){
  // instance persists for the whole page session once it's actually ready.
  if(chromeTranslatorState==="temporarily-failed") chromeTranslatorState="uninitialized";
  const sents=splitSentences(text), unique=[...new Set(words(text))];
- let vocab=unique.filter(w=>dictionary[w]).map(w=>({word:w,data:dictionary[w],level:levelFor(w)}));
+ let vocab=unique.filter(w=>dictionary[w]).map(w=>buildVocabCardData(w));
  if(vocab.length<12){
    const vocabQualityTier=(w)=>{
      if(supplementalVocab[w]) return 3;
@@ -2327,23 +2360,8 @@ async function analyze(){
      if(mb0 && (dictionary[mb0]||supplementalVocab[mb0]||broadVocabLexicon[mb0])) return 2;
      return 0;
    };
-   unique.filter(w=>w.length>=7 && !vocab.some(v=>v.word===w) && !isLikelyProperNounInPassage(w,text)).sort((a,b)=>(vocabQualityTier(b)-vocabQualityTier(a))||(b.length-a.length)).slice(0,12-vocab.length).forEach((w,i)=>{
-     const level=w.length>=11?12:w.length>=9?11:10;
-     if(supplementalVocab[w]){
-       vocab.push({word:w,level,data:supplementalVocab[w]});
-       return;
-     }
-     if(broadVocabLexicon[w]){
-       vocab.push({word:w,level,data:broadVocabLexicon[w]});
-       return;
-     }
-     const morphBase=safeMorphologyBase(w);
-     if(morphBase){
-       const baseData=dictionary[morphBase]||supplementalVocab[morphBase]||broadVocabLexicon[morphBase];
-       if(baseData){ vocab.push({word:w,level,data:baseData}); return; }
-     }
-     const fallback=fallbackExamplePool[i%fallbackExamplePool.length];
-     vocab.push({word:w,level,data:["academic or informational word","a word selected from the passage; use the linked learner dictionaries to confirm its exact sense in context",fallbackKoreanGloss(w),fallback[0].replaceAll("{word}",w),fallback[1].replaceAll("{word}",w),"see dictionary links for exact synonyms","an exact antonym may not exist; check the sense in context"]})
+   unique.filter(w=>w.length>=7 && !vocab.some(v=>v.word===w) && !isLikelyProperNounInPassage(w,text)).sort((a,b)=>(vocabQualityTier(b)-vocabQualityTier(a))||(b.length-a.length)).slice(0,12-vocab.length).forEach((w)=>{
+     vocab.push(buildVocabCardData(w));
    });
  }
  vocab.sort((a,b)=>b.level-a.level || b.word.length-a.word.length);
