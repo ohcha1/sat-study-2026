@@ -2302,18 +2302,32 @@ function safeMorphologyBase(w){
 // order, same level-computation rule per tier). Standalone so it can be called for a bare word
 // string with no passage/analysis in memory (Word Book/Review Queue, Dev Tasks 5-6, need to
 // rebuild a full card for a word saved in a past session).
-function buildVocabCardData(word){
+// Milestone 4 Dev Task 2 — see docs/milestones/milestone-04/02-ARCHITECTURE.md §3.2/§3.3. Added on
+// top of Dev Task 1's extraction: `curated` (true for any real dictionary/supplemental/broad/
+// morphology-base hit, false for the generic-fallback branch — powers the "Important SAT Words"
+// default filter and the student-facing curated-vs-fallback distinction) and `contextSentence`
+// (the passage sentence containing the word, for the Dictionary Card's "context meaning" field —
+// local/free, not AI-generated; §6 AI Role). `passageText` is optional: Word Book/Review Queue
+// (Dev Tasks 5-6) call this with no passage in memory, in which case contextSentence is simply
+// null — an omitted field, not an error state, per the architecture's design.
+function buildVocabCardData(word,passageText){
  const w=word;
- if(dictionary[w]) return {word:w,level:levelFor(w),data:dictionary[w]};
+ const contextSentence=passageText?findContextSentence(w,passageText):null;
+ if(dictionary[w]) return {word:w,level:levelFor(w),data:dictionary[w],curated:true,contextSentence};
  const lengthLevel=w.length>=11?12:w.length>=9?11:10;
- if(supplementalVocab[w]) return {word:w,level:lengthLevel,data:supplementalVocab[w]};
- if(broadVocabLexicon[w]) return {word:w,level:lengthLevel,data:broadVocabLexicon[w]};
+ if(supplementalVocab[w]) return {word:w,level:lengthLevel,data:supplementalVocab[w],curated:true,contextSentence};
+ if(broadVocabLexicon[w]) return {word:w,level:lengthLevel,data:broadVocabLexicon[w],curated:true,contextSentence};
  const morphBase=safeMorphologyBase(w);
  if(morphBase){
    const baseData=dictionary[morphBase]||supplementalVocab[morphBase]||broadVocabLexicon[morphBase];
-   if(baseData) return {word:w,level:lengthLevel,data:baseData};
+   if(baseData) return {word:w,level:lengthLevel,data:baseData,curated:true,contextSentence};
  }
- return {word:w,level:lengthLevel,data:buildFallbackVocabData(w)};
+ return {word:w,level:lengthLevel,data:buildFallbackVocabData(w),curated:false,contextSentence};
+}
+function findContextSentence(word,passageText){
+ const re=new RegExp("\\b"+word.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\b","i");
+ const sents=splitSentences(passageText);
+ return sents.find(s=>re.test(s))||null;
 }
 // Milestone 4 Dev Task 1 — generic-fallback card data, same fields/wording as the original inline
 // branch. One deliberate, called-out behavior difference: the original chose the fallback example
@@ -2351,7 +2365,7 @@ async function analyze(){
  // instance persists for the whole page session once it's actually ready.
  if(chromeTranslatorState==="temporarily-failed") chromeTranslatorState="uninitialized";
  const sents=splitSentences(text), unique=[...new Set(words(text))];
- let vocab=unique.filter(w=>dictionary[w]).map(w=>buildVocabCardData(w));
+ let vocab=unique.filter(w=>dictionary[w]).map(w=>buildVocabCardData(w,text));
  if(vocab.length<12){
    const vocabQualityTier=(w)=>{
      if(supplementalVocab[w]) return 3;
@@ -2361,7 +2375,7 @@ async function analyze(){
      return 0;
    };
    unique.filter(w=>w.length>=7 && !vocab.some(v=>v.word===w) && !isLikelyProperNounInPassage(w,text)).sort((a,b)=>(vocabQualityTier(b)-vocabQualityTier(a))||(b.length-a.length)).slice(0,12-vocab.length).forEach((w)=>{
-     vocab.push(buildVocabCardData(w));
+     vocab.push(buildVocabCardData(w,text));
    });
  }
  vocab.sort((a,b)=>b.level-a.level || b.word.length-a.word.length);
