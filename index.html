@@ -548,7 +548,8 @@ function updateTranslationRow(i){
 async function retrySentence(i){
  const a=state.analysis;
  if(!a||!a.translations[i])return;
- const r=await translateSentenceReliable(a.translations[i].en,{bypassCache:true});
+ const routed=await aiRouter.request("translation",{text:a.translations[i].en},{bypassCache:true});
+ const r=routed.data;
  Object.assign(a.translations[i],{ko:r.ko,status:r.status,source:r.source});
  updateTranslationRow(i);
 }
