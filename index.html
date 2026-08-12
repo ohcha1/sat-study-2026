@@ -54,6 +54,7 @@ textarea{min-height:480px;resize:vertical;line-height:1.65}
 .card h3{font-size:15px;color:var(--navy);margin:0 0 10px}
 .bilingual{display:grid;grid-template-columns:1fr 1fr;gap:12px}
 .sentence{padding:10px 0;border-bottom:1px dashed #D1D5DB}.sentence:last-child{border-bottom:none}
+.sentence.loading{background:var(--sky);border-radius:9px;padding:12px 14px;margin:4px 0;border-bottom:none;animation:sentencePulse 1.4s ease-in-out infinite}.sentence.loading .ko{color:var(--navy2)}@keyframes sentencePulse{0%,100%{opacity:1}50%{opacity:.5}}.sentence.error{background:rgba(185,28,28,.06);border-left:3px solid var(--danger);border-radius:9px;padding:12px 14px;margin:4px 0;border-bottom:none}.sentence.error .ko{color:var(--danger);font-weight:700}.sentence.error .btn{margin-top:8px}
 .en{font-weight:650;line-height:1.55}.ko{color:#475569;line-height:1.55;margin-top:5px}
 .word-card{display:grid;grid-template-columns:56px minmax(140px,260px) 1fr;gap:18px;align-items:start}
 .word-card>div:last-child{line-height:1.8}.word-card b{display:inline-block;margin-top:3px;margin-right:7px}.meaning-block{margin:10px 0 14px;padding:10px 12px;border-radius:9px;background:#F8FAFC}.meaning-block+.meaning-block{margin-top:14px}
@@ -2240,32 +2241,46 @@ async function analyze(){
  // Idioms & Phrases Quality #11: only phrases that actually occur in THIS passage are
  // shown — no padding with unrelated phraseBank entries, no forced minimum count.
  const phrases=findPhraseMatches(text,sents);
- document.getElementById("status").textContent="한글 번역과 학습자료를 생성하는 중…";
- // Sequential, not Promise.all: this is what makes 429-stop actually work —
- // firing every sentence at once would dispatch them all before a single
- // 429 response could set mymemoryRateLimited, so the "stop after first
- // 429" rule from the CEO's directive would otherwise have no effect.
- const translated=[];
- // Milestone 3 Dev Task 2 — direct call for now (sequential, unchanged from the Gold Master's own
- // loop). Dev Tasks 3/4 replace this call with aiRouter.request('translation',...) and add
- // progressive per-row UI updates; the sequential shape of this loop itself does not change.
- for(const s of sents){ translated.push(await translateSentenceReliable(s)); }
- console.log("[SAT Studio Translation]\nChrome: "+providerUsageThisRun.chrome+"\nMyMemory: "+providerUsageThisRun.mymemory+"\nLingva: "+providerUsageThisRun.lingva+"\nLocal: "+providerUsageThisRun.local);
- const translations=sents.map((s,i)=>({en:s,ko:translated[i].ko,status:translated[i].status,source:translated[i].source}));
- const summarySents=summarizeSentences(sents);
- const summaryEn=summarySents.join(" ");
- // Summary sentences are always exact members of `sents` (summarizeSentences
- // never rewrites text), so every one of them was just translated above —
- // reuse translationCache instead of calling translateSentenceReliable()/MyMemory again.
- const summaryKo=summarySents.map(s=>{const c=translationCache.get(s.trim());return (c&&c.ko)||simpleTranslate(s).ko;}).join(" ");
  const qcount=Number(document.getElementById("qcount").value);
  const questions=makeQuestions(text,sents,vocab,qcount);
- state.analysis={text,sents,vocab,phrases,translations,questions,summaryEn,summaryKo,title:document.getElementById("title").value||"제목 없는 학습자료",grade:document.getElementById("grade").value,date:new Date().toLocaleString("ko-KR")};
+ // Milestone 3 Dev Task 3 — see docs/milestones/milestone-03/02-ARCHITECTURE.md §3a. state.analysis
+ // is now assigned BEFORE translations resolve (translations start as 'loading' placeholders), so
+ // render()/updateTranslationRow() can show per-sentence progress as each one completes — the
+ // outcome Milestone 2's per-row UI provides, reproduced here without concurrent dispatch. summaryEn/
+ // summaryKo are computed after the loop (patched into state.analysis in place, same object the
+ // Overview tab already reads from) since they depend on the same sentences having been translated.
+ const translations=sents.map(s=>({en:s,ko:null,status:"loading",source:null}));
+ state.analysis={text,sents,vocab,phrases,translations,questions,summaryEn:"",summaryKo:"",title:document.getElementById("title").value||"제목 없는 학습자료",grade:document.getElementById("grade").value,date:new Date().toLocaleString("ko-KR")};
  document.getElementById("analysisTitle").textContent=state.analysis.title;
- document.getElementById("status").textContent=`분석 완료 · ${sents.length}문장 · ${vocab.length}개 핵심어휘`;
  state.active="overview";
  document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.tab==="overview"));
  render(); toast("지문 분석이 완료되었습니다.");
+ // Sequential, not Promise.all/runWithConcurrency: this is what makes the Gold Master's MyMemory
+ // 429-stop actually work — firing every sentence at once would dispatch them all before a single
+ // 429 response could set mymemoryRateLimited, so the "stop after first 429" behavior would
+ // otherwise have no effect. Each iteration mutates translations[i] in place and patches just that
+ // row via updateTranslationRow(i) rather than re-rendering the whole tab. Dev Task 4 routes this
+ // call through aiRouter.request('translation',...) instead of calling translateSentenceReliable()
+ // directly; the sequential shape of this loop does not change.
+ let completed=0;
+ document.getElementById("status").textContent=`한글 번역 진행 중… (0/${sents.length} 완료)`;
+ for(let i=0;i<sents.length;i++){
+   const r=await translateSentenceReliable(sents[i]);
+   Object.assign(translations[i],{ko:r.ko,status:r.status,source:r.source});
+   updateTranslationRow(i);
+   completed++;
+   document.getElementById("status").textContent=`한글 번역 진행 중… (${completed}/${sents.length} 완료)`;
+ }
+ console.log("[SAT Studio Translation]\nChrome: "+providerUsageThisRun.chrome+"\nMyMemory: "+providerUsageThisRun.mymemory+"\nLingva: "+providerUsageThisRun.lingva+"\nLocal: "+providerUsageThisRun.local);
+ const summarySents=summarizeSentences(sents);
+ state.analysis.summaryEn=summarySents.join(" ");
+ // Summary sentences are always exact members of `sents` (summarizeSentences never rewrites text),
+ // so every one of them was just translated above — reuse translationCache instead of calling
+ // translateSentenceReliable()/MyMemory again.
+ state.analysis.summaryKo=summarySents.map(s=>{const c=translationCache.get(s.trim());return (c&&c.ko)||simpleTranslate(s).ko;}).join(" ");
+ const failedCount=translations.filter(t=>t.status==="error").length;
+ document.getElementById("status").textContent=`분석 완료 · ${sents.length}문장 · ${vocab.length}개 핵심어휘`+(failedCount?` · 번역 ${failedCount}건 실패`:"");
+ if(state.active==="overview") render();
 }
 function englishOnly(s,fallback="The passage provides relevant evidence for its central claim."){
  const cleaned=String(s||"").replace(/[가-힣ㄱ-ㅎㅏ-ㅣ]/g,"").replace(/\s+/g," ").trim();
@@ -3167,8 +3182,45 @@ function overview(a){return `<div class="summary-grid">
  <div class="card c-mint"><h3>학습 흐름</h3>전체 해석 → 학년별 단어 → 숙어·문법 → 예문·ESL → SAT 문제 풀이</div>
  <div class="card c-purple"><div class="en">${a.summaryEn}</div><div class="ko" style="margin-top:9px">(${a.summaryKo})</div></div>
  <div class="card c-blue"><h3>추천 학습 방법</h3><div class="ko">먼저 번역을 가리고 지문을 읽은 뒤, 단어와 구문을 확인하고 마지막에 SAT 문제를 풀어 보세요.</div></div>`}
-function translation(a){return `<div class="card c-blue translation-card"><h3>문장별 영어·한국어 해석</h3>${a.translations.map(x=>`<div class="sentence"><div class="en">${x.en}</div><div class="ko">(${x.ko})</div></div>`).join("")}</div>
-<div class="card"><h3>자연스러운 전체 해석</h3><div class="ko">${a.translations.map(x=>x.ko).join(" ")}</div></div>`}
+// Milestone 3 Dev Task 3 — see docs/milestones/milestone-03/02-ARCHITECTURE.md §3a. Ported from
+// multi-ai-v2-dev's Milestone 2 Dev Task 4/6 (translationRowTemplate/updateTranslationRow), adapted
+// to this file's existing .sentence/.en/.ko card markup rather than importing new markup. Renders
+// the loading/success/error states translateSentenceReliable()'s structured result now supports;
+// the Gold Master's own translation(a) had only one shape (always "success") and no escapeHtml.
+function translationRowTemplate(x,i){
+ const en=`<div class="en">${escapeHtml(x.en)}</div>`;
+ if(x.status==="loading"){
+  return `<div class="sentence loading" data-i="${i}">${en}<div class="ko">번역 중…</div></div>`;
+ }
+ if(x.status==="error"){
+  return `<div class="sentence error" data-i="${i}">${en}<div class="ko">이 문장의 번역에 실패했습니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.</div><button class="btn btn-soft" onclick="retrySentence(${i})">다시 시도</button></div>`;
+ }
+ return `<div class="sentence" data-i="${i}">${en}<div class="ko">(${escapeHtml(x.ko)})</div></div>`;
+}
+// Patches only the DOM node for sentence i (found via the data-i hook translationRowTemplate
+// renders) if the translation tab is currently active; a no-op otherwise, since render() already
+// picks up current state whenever the user switches to that tab. Defensive: also no-ops if the node
+// isn't found (e.g. render() hasn't run yet for this analysis).
+function updateTranslationRow(i){
+ if(state.active!=="translation")return;
+ const node=document.querySelector('#result [data-i="'+i+'"]');
+ if(!node)return;
+ node.outerHTML=translationRowTemplate(state.analysis.translations[i],i);
+}
+// Exposed for the error row's retry button onclick, matching this file's existing inline-handler
+// convention (e.g. onclick="analyze()"). Re-runs the provider chain for only this one sentence,
+// bypassing the cache (a failed sentence is never cached, so bypassCache only matters if retrying a
+// sentence that somehow already succeeded), then patches just that row. Routed through aiRouter as
+// of Dev Task 4; calls translateSentenceReliable() directly until then.
+async function retrySentence(i){
+ const a=state.analysis;
+ if(!a||!a.translations[i])return;
+ const r=await translateSentenceReliable(a.translations[i].en,{bypassCache:true});
+ Object.assign(a.translations[i],{ko:r.ko,status:r.status,source:r.source});
+ updateTranslationRow(i);
+}
+function translation(a){return `<div class="card c-blue translation-card"><h3>문장별 영어·한국어 해석</h3>${a.translations.map((x,i)=>translationRowTemplate(x,i)).join("")}</div>
+<div class="card"><h3>자연스러운 전체 해석</h3><div class="ko">${escapeHtml(a.translations.map(x=>x.ko).join(" "))}</div></div>`}
 function dictionaryLinks(word){
  const w=encodeURIComponent(word);
  return `<div class="source-row"><span class="small" style="align-self:center">사전 확인:</span>
