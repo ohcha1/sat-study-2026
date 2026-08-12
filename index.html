@@ -1980,19 +1980,35 @@ function getDevApiKey(providerId){
   return (typeof window!=="undefined"&&window.SAT_STUDIO_DEV_KEYS&&window.SAT_STUDIO_DEV_KEYS[providerId])||null;
  }catch(e){return null}
 }
+// Milestone 4 Dev Task 7 — see docs/milestones/milestone-04/02-ARCHITECTURE.md §3.6. Extends the
+// existing gemini adapter with one new taskType, "vocab-context" — not a new provider, not a new
+// router concept. Shares the exact fetch/timeout/error shell already proven live for "summary";
+// only the prompt built and the response field parsed differ per taskType.
 registerProvider({
  id:"gemini",
  offline:false,
  costTier:"paid",
- canHandle(taskType){return taskType==="summary"},
+ canHandle(taskType){return taskType==="summary"||taskType==="vocab-context"},
  async request(taskType,payload,options){
   const apiKey=getDevApiKey("gemini");
   if(!apiKey){
    return {success:false,data:null,model:GEMINI_MODEL,error:"gemini: no development API key configured (DEVELOPMENT ONLY mechanism)"};
   }
-  const text=(payload&&payload.text)||"";
-  if(!text){
-   return {success:false,data:null,model:GEMINI_MODEL,error:"gemini: no text provided for summary"};
+  let prompt;
+  if(taskType==="vocab-context"){
+   // Only {word, sentence, localDefinition} are sent — no student identity, no passage title, no
+   // other metadata, matching the same privacy discipline already applied to "summary".
+   const word=(payload&&payload.word)||"", sentence=(payload&&payload.sentence)||"", localDefinition=(payload&&payload.localDefinition)||"";
+   if(!word||!sentence){
+    return {success:false,data:null,model:GEMINI_MODEL,error:"gemini: no word/sentence provided for vocab-context"};
+   }
+   prompt=`Explain in 1-2 short sentences, in Korean, why the word "${word}" has the meaning it does in this exact sentence — help a Korean high-school SAT student see how the surrounding context supports that sense. Sentence: "${sentence}". Reference dictionary sense: "${localDefinition}".`;
+  }else{
+   const text=(payload&&payload.text)||"";
+   if(!text){
+    return {success:false,data:null,model:GEMINI_MODEL,error:"gemini: no text provided for summary"};
+   }
+   prompt="Summarize the following passage in 2-3 sentences:\n\n"+text;
   }
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),(options&&options.timeoutMs)||REQUEST_TIMEOUT_MS);
@@ -2002,13 +2018,14 @@ registerProvider({
     method:"POST",
     headers:{"Content-Type":"application/json"},
     signal:controller.signal,
-    body:JSON.stringify({contents:[{parts:[{text:"Summarize the following passage in 2-3 sentences:\n\n"+text}]}]})
+    body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})
    });
    if(!res.ok)return {success:false,data:null,model:GEMINI_MODEL,error:"gemini: http "+res.status};
    const json=await res.json();
-   const summary=json&&json.candidates&&json.candidates[0]&&json.candidates[0].content&&json.candidates[0].content.parts&&json.candidates[0].content.parts[0]&&json.candidates[0].content.parts[0].text;
-   if(!summary)return {success:false,data:null,model:GEMINI_MODEL,error:"gemini: empty response"};
-   return {success:true,data:{summary:summary.trim()},model:GEMINI_MODEL,error:null};
+   const resultText=json&&json.candidates&&json.candidates[0]&&json.candidates[0].content&&json.candidates[0].content.parts&&json.candidates[0].content.parts[0]&&json.candidates[0].content.parts[0].text;
+   if(!resultText)return {success:false,data:null,model:GEMINI_MODEL,error:"gemini: empty response"};
+   const data=taskType==="vocab-context"?{explanation:resultText.trim()}:{summary:resultText.trim()};
+   return {success:true,data,model:GEMINI_MODEL,error:null};
   }catch(e){
    return {success:false,data:null,model:GEMINI_MODEL,error:"gemini: "+(e&&e.message?e.message:"request failed")};
   }finally{
@@ -3390,6 +3407,32 @@ async function loadGeminiSummary(){
   geminiSummaryInFlight=false;
  }
 }
+// Milestone 4 Dev Task 7 — see docs/milestones/milestone-04/02-ARCHITECTURE.md §3.6. Same
+// render-time-key-check / in-flight-guard / try-finally / graceful-failure pattern as
+// loadGeminiSummary() above, keyed per word (vocabContextInFlight is an object, not a single flag,
+// since multiple word cards can each have their own button open at once). Only ever appends into
+// its own small area within the card — never touches v.data[1]/[2] or the local context sentence,
+// so the core Dictionary Card stays fully correct and usable even if this fails or is never used.
+let vocabContextInFlight={};
+async function loadVocabContext(word,sentence,localDefinition){
+ if(vocabContextInFlight[word])return;
+ const root=document.getElementById("vocabContext_"+word);
+ if(!root)return;
+ vocabContextInFlight[word]=true;
+ root.innerHTML=`<div class="small">AI 설명을 불러오는 중…</div>`;
+ try{
+  const routed=await aiRouter.request("vocab-context",{word,sentence,localDefinition});
+  const liveRoot=document.getElementById("vocabContext_"+word);
+  if(!liveRoot) return;
+  if(routed.success&&routed.data&&routed.data.explanation){
+   liveRoot.innerHTML=`<div class="ko">${escapeHtml(routed.data.explanation)}</div>`;
+  }else{
+   liveRoot.innerHTML=`<div class="small">AI 설명을 불러오지 못했습니다: ${escapeHtml(routed.error||"알 수 없는 오류")}</div>`;
+  }
+ }finally{
+  vocabContextInFlight[word]=false;
+ }
+}
 // Milestone 3 Dev Task 3 — see docs/milestones/milestone-03/02-ARCHITECTURE.md §3a. Ported from
 // multi-ai-v2-dev's Milestone 2 Dev Task 4/6 (translationRowTemplate/updateTranslationRow), adapted
 // to this file's existing .sentence/.en/.ko card markup rather than importing new markup. Renders
@@ -3477,6 +3520,11 @@ function vocabCardTemplate(v){
  const progress=vocabProgressCache[v.word]||{};
  const saved=!!progress.savedToWordBook;
  const reviewState=progress.reviewState||"new";
+ // Milestone 4 Dev Task 7 — render-time key check (fails closed before any click, same pattern as
+ // overview()'s Gemini summary card), and only offered when there's a context sentence to explain —
+ // a Word Book card reconstructed with no passage in memory has contextSentence:null and correctly
+ // gets no AI button, since there is nothing contextual to explain.
+ const vocabContextAvailable=!!getDevApiKey("gemini")&&!!v.contextSentence;
  return `<div class="card word-card${v.curated?"":" word-card-fallback"}">
  <div class="word-card-above">
   <div class="word-card-tags"><span class="level l${v.level}">${v.level}</span><span class="word-source-tag ${v.curated?"tag-curated":"tag-general"}">${v.curated?"사전 수록 단어":"일반 설명"}</span></div>
@@ -3494,6 +3542,7 @@ function vocabCardTemplate(v){
  <details class="word-card-more"><summary>더 보기 (동의어·반의어·예문)</summary>
   <div class="syn-ant"><div class="syn"><b>Synonyms · 동의어</b><div style="margin-top:7px">${v.data[5]||"문맥에 따라 확인"}</div></div><div class="ant"><b>Antonyms · 반의어</b><div style="margin-top:7px">${v.data[6]||"문맥에 따라 확인"}</div></div></div>
   <div class="example"><div class="example-title">High-school academic example</div>${v.data[3]}<br><span class="ko">(${v.data[4]})</span></div>${dictionaryLinks(v.word)}
+  ${vocabContextAvailable?`<div style="margin-top:12px"><button class="btn btn-soft" onclick='loadVocabContext(${JSON.stringify(v.word)},${JSON.stringify(v.contextSentence)},${JSON.stringify(v.data[1])})'>AI: 왜 이 뜻일까요? (선택)</button></div><div id="vocabContext_${v.word}" style="margin-top:8px"></div>`:""}
  </details></div>`;
 }
 function vocab(a){
