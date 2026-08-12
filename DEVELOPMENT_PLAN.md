@@ -53,6 +53,75 @@ Verification method: same as Milestone 1 — no automated test framework exists 
 packaging and the CEO push-approval gate have not yet occurred — this milestone has not been pushed.
 See `docs/milestones/milestone-02/05-REVIEW-REPORT.md` for the current gate status.
 
+## Milestone "3" numbering note (Gold Master Adoption track)
+
+A second, unrelated body of work also uses the label "Milestone 3": **Gold Master Adoption +
+Multi-AI Migration**, tracked entirely under `docs/milestones/milestone-03/` on the
+`multi-ai-v2-latest-dev` branch (forked from `multi-ai-v2-dev`, not from this document's numbered
+sequence). Per the CEO's explicit decision recorded in `docs/milestones/milestone-03/01-PM-SPEC.md`
+§1/§6a.1, this collision is recorded here rather than resolved by renumbering either track — the
+"Milestone 3 — Dictionary Upgrade" section immediately below is unrelated to it and unchanged by
+it. See the dedicated entry immediately below this note for the Gold Master Adoption track's status.
+
+## Milestone 3 (Gold Master Adoption track) — Gold Master Adoption + Multi-AI Migration — ✅ Development/QA/Review Complete, pending CEO push approval
+
+Goal: adopt `LATEST_GOLD_MASTER_NEXT.html` (CEO-supplied) as the new application baseline and
+re-integrate the Multi-AI V2 router/reliability work already built on `multi-ai-v2-dev`, without
+losing the Gold Master's newer subsystems (IndexedDB persistence, PDF/OCR/HEIC import, SAT
+question/grammar engines, pronunciation scoring, on-device Chrome Translator) or Milestone 2's
+translation reliability improvements. Full document set:
+`docs/milestones/milestone-03/{01-PM-SPEC,02-ARCHITECTURE,03-IMPLEMENTATION-LOG,04-QA-REPORT,05-REVIEW-REPORT}.md`.
+
+- **Branch / final commit:** `multi-ai-v2-latest-dev` at `9c4cc731ed6e283964fb8d3095106884ed67d02f`
+  (`multi-ai-v2-dev` and `LATEST_GOLD_MASTER_NEXT.html` both left unchanged throughout).
+- **Gold Master baseline:** `LATEST_GOLD_MASTER_NEXT.html`, SHA-256
+  `a51c603348b9b6b507787db4807dd3d0e54ac22ee42407d4afc2070d963162ba`, preserved byte-for-byte as the
+  protected reference copy; `index.html` seeded from it and confirmed unchanged outside the scoped
+  translation/router/persistence regions (Principal Review §2/§3).
+- [x] Reconciled the Gold Master's `translateSentence()` (on-device Chrome Translator primary,
+  preserved) with Milestone 2's reliability chain (Lingva fallback, retry/backoff, timeout,
+  structured `{ko,status,source}`), keeping the Gold Master's sequential dispatch and MyMemory
+  429-stop intact — commits `29523bb`, `43b2ccf`.
+- [x] Re-inserted the Multi-AI V2 router (`providerRegistry`/`aiRouter`/`legacy-translation`
+  adapter) and wired `analyze()`/`retrySentence()` through it — commit `b90362b`.
+- [x] Carried over persistence fixes (`getSavedList()` defensive read, SAVE-1 guard,
+  `renderSaved()` XSS-escaping fix) without touching the Gold Master's IndexedDB schema — commit
+  `89184a7`.
+- [x] **Hot-fix, found during QA (not originally scoped):** Risk A — Chrome Translator
+  initialization could hang indefinitely with no timeout, stalling translation with a silently
+  stuck loading row. Fixed by racing initialization against the existing request-timeout budget and
+  failing open to MyMemory. Risk B — `Date.now()`-only save IDs could collide on rapid consecutive
+  saves, and deleting one colliding item deleted both (confirmed data loss). Fixed with a
+  collision-safe increment, fully backward compatible with existing saved records. Both
+  independently re-verified resolved. — commit `9c4cc73`
+- **Deferred, not fixed (Medium, logged as backlog):** Risk C — calling analyze() again while one is
+  already running can race; the common outcome is benign ("last request wins"), with a narrower
+  console-only failure mode under an uncommon combination of conditions. No crash, no data loss, no
+  security exposure. Candidate for a future milestone.
+- **Multi-AI Router status:** live and wired for translation (`legacy-translation` adapter). Dormant
+  `gemini` adapter (summary-only) is present, isolated, and fails closed without a
+  `window.SAT_STUDIO_DEV_KEYS.gemini` value — **not yet exercised against a live Gemini API key**;
+  its request-building/response-parsing logic has only been verified via its fail-closed path, not
+  a real API round-trip. No additional provider was added.
+- **Preserved unmodified (confirmed via direct diff, not just re-tested):** IndexedDB schema (all 6
+  object stores), photo/PDF/HEIC import (`importDocument`/`extractPdfPassage`/`getPdfLibrary`/
+  `getDocumentOcrWorker`/`convertHeicForOcr`), and all 7 responsive `@media` blocks.
+
+Exit criteria: met, with the one deferred item above. QA result: **PASS** (all 10 PM-Spec
+acceptance criteria met after the hot-fix; see `04-QA-REPORT.md` and its focused re-verification).
+Principal Review result: **APPROVE WITH CONDITIONS** (the one condition — this
+`DEVELOPMENT_PLAN.md` update — is satisfied by this entry; see `05-REVIEW-REPORT.md`).
+
+Verification method: no automated test framework exists in this repo (same as Milestones 1-2); this
+environment additionally had no Node/jsdom available, so verification used live in-browser testing
+(a local static server driven through the Browser tool) instead of the usual throwaway-jsdom
+scripts — noted as a methodology deviation in `03-IMPLEMENTATION-LOG.md` for future milestones'
+awareness.
+
+**Release status:** Development, QA (including a hot-fix cycle), and Principal Review are complete.
+Release packaging (`06-RELEASE-NOTES.md`) and the CEO push-approval gate are the only remaining
+steps — this milestone has not been pushed or merged to `main`.
+
 ## Milestone 3 — Dictionary Upgrade
 
 Goal: replace the ~40-word hardcoded dictionary and grade-level heuristics with a scalable vocabulary source.
