@@ -64,7 +64,9 @@ textarea{min-height:480px;resize:vertical;line-height:1.65}
 .tag-general{background:#F1F5F9;color:#64748B}
 .context-meaning{border-left:4px solid #FDBA74}
 .word-card-actions{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
-.review-state-badge{display:inline-flex;align-items:center;padding:6px 12px;border-radius:999px;background:#F1F5F9;color:#475569;font-size:12px;font-weight:800}
+.review-state-badge{display:inline-flex;align-items:center;padding:6px 12px;border-radius:999px;background:#F1F5F9;color:#475569;font-size:12px;font-weight:800;border:none;cursor:pointer}
+.review-state-reviewing{background:#FEF3C7;color:#92400E}
+.review-state-learned{background:#DCFCE7;color:#166534}
 .word-card-more{margin-top:14px}
 .word-card-more summary{cursor:pointer;font-weight:800;color:#1E3A5F;padding:8px 0}
 .word-card>div:last-child{line-height:1.8}.word-card b{display:inline-block;margin-top:3px;margin-right:7px}.meaning-block{margin:10px 0 14px;padding:10px 12px;border-radius:9px;background:#F8FAFC}.meaning-block+.meaning-block{margin-top:14px}
@@ -1832,7 +1834,9 @@ let mediaRecorder=null, recordedChunks=[], recordedUrl=null, speechTranscript=""
 // Show-all toggle (see docs/milestones/milestone-04/02-ARCHITECTURE.md §3.2). It never mutates
 // a.vocab itself, so the Overview tab's word count and makeQuestions()'s vocab-in-context question
 // generator continue to see the full extracted list regardless of this toggle's state.
-const state={analysis:null,active:"overview",vocabShowAll:false};
+// Milestone 4 Dev Task 6 — wordBookFilter is display-only state for the Word Book tab's review-state
+// segmented control (all/new/reviewing/learned), same pattern as vocabShowAll above.
+const state={analysis:null,active:"overview",vocabShowAll:false,wordBookFilter:"all"};
 
 document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{
  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
@@ -3472,6 +3476,7 @@ function dictionaryLinks(word){
 function vocabCardTemplate(v){
  const progress=vocabProgressCache[v.word]||{};
  const saved=!!progress.savedToWordBook;
+ const reviewState=progress.reviewState||"new";
  return `<div class="card word-card${v.curated?"":" word-card-fallback"}">
  <div class="word-card-above">
   <div class="word-card-tags"><span class="level l${v.level}">${v.level}</span><span class="word-source-tag ${v.curated?"tag-curated":"tag-general"}">${v.curated?"사전 수록 단어":"일반 설명"}</span></div>
@@ -3483,7 +3488,7 @@ function vocabCardTemplate(v){
   <div class="meaning-block"><b>English meaning</b><div style="margin-top:9px;line-height:1.8">${v.data[1]}</div></div>
   <div class="word-card-actions">
    <button class="btn ${saved?"btn-primary":"btn-soft"}" onclick='toggleWordBookSave(${JSON.stringify(v.word)})'>${saved?"저장됨 ✓ (제거)":"단어장에 저장"}</button>
-   <span class="review-state-badge" title="다음 업데이트에서 제공됩니다">새 단어</span>
+   <button class="review-state-badge review-state-${reviewState}" onclick='cycleReviewState(${JSON.stringify(v.word)})' title="눌러서 학습 상태 변경">${REVIEW_STATE_LABELS[reviewState]}</button>
   </div>
  </div>
  <details class="word-card-more"><summary>더 보기 (동의어·반의어·예문)</summary>
@@ -4752,6 +4757,16 @@ function wordBookView(){
  }
  return `<div id="wordBookRoot"><div class="empty" style="height:200px">단어장을 불러오는 중입니다...</div></div>`;
 }
+// Milestone 4 Dev Task 6 — filter/segmented-control added on top of Dev Task 5's view, per
+// architecture §3.3's "one view with two filter modes" recommendation (smaller diff than a second
+// tab, since the underlying data and card rendering are identical — only the filter differs).
+function wordBookFilterBar(saved){
+ const counts={all:saved.length,new:0,reviewing:0,learned:0};
+ saved.forEach(r=>{ counts[r.reviewState||"new"]++; });
+ const opts=[["all","전체"],["new","새 단어"],["reviewing","복습 중"],["learned","학습 완료"]];
+ return `<div class="card" style="padding:14px 16px;display:flex;gap:8px;flex-wrap:wrap">${opts.map(([key,label])=>`<button class="btn ${state.wordBookFilter===key?"btn-primary":"btn-soft"}" onclick='setWordBookFilter(${JSON.stringify(key)})'>${label} (${counts[key]})</button>`).join("")}</div>`;
+}
+function setWordBookFilter(key){ state.wordBookFilter=key; renderWordBookAsync(); }
 async function renderWordBookAsync(){
  const root=document.getElementById("wordBookRoot");
  if(!root||!auth.userId) return;
@@ -4765,8 +4780,10 @@ async function renderWordBookAsync(){
   liveRoot.innerHTML=`<div class="empty" style="height:200px">아직 단어장에 저장한 단어가 없습니다. '학년별 단어' 탭에서 단어 카드의 <b>단어장에 저장</b> 버튼을 눌러보세요.</div>`;
   return;
  }
- const cards=saved.map(r=>vocabCardTemplate(buildVocabCardData(r.word))).join("");
- liveRoot.innerHTML=`<div class="card c-blue"><h3>단어장 · 저장한 단어 ${saved.length}개</h3><div class="ko">지문과 별개로 저장해 둔 단어입니다. 발음을 듣고, 학습 상태를 표시해 보세요.</div></div>${cards}`;
+ const filtered=state.wordBookFilter==="all"?saved:saved.filter(r=>(r.reviewState||"new")===state.wordBookFilter);
+ const cards=filtered.map(r=>vocabCardTemplate(buildVocabCardData(r.word))).join("")
+  ||`<div class="empty" style="height:120px">이 학습 상태에 해당하는 저장된 단어가 없습니다.</div>`;
+ liveRoot.innerHTML=`<div class="card c-blue"><h3>단어장 · 저장한 단어 ${saved.length}개</h3><div class="ko">지문과 별개로 저장해 둔 단어입니다. 발음을 듣고, 학습 상태를 표시해 보세요.</div></div>${wordBookFilterBar(saved)}${cards}`;
 }
 function errorAdvice(errorType){
  const map={
@@ -4817,6 +4834,21 @@ async function toggleWordBookSave(word){
  const nowSaved=!(vocabProgressCache[word]&&vocabProgressCache[word].savedToWordBook);
  await updateVocabProgress(word,{savedToWordBook:nowSaved,savedAt:nowSaved?new Date().toISOString():null});
  toast(nowSaved?"단어장에 저장했습니다.":"단어장에서 제거했습니다.");
+ render();
+}
+// Milestone 4 Dev Task 6 — see docs/milestones/milestone-04/02-ARCHITECTURE.md §3.3. A simple
+// three-state cycle (new -> reviewing -> learned -> new), not a spaced-repetition schedule, per the
+// CEO's "reuse existing data, keep it minimal" direction. Works on any word (saved or not), matching
+// the Dictionary Card's field list, which lists review state alongside — not conditional on — the
+// save action.
+const REVIEW_STATE_ORDER=["new","reviewing","learned"];
+const REVIEW_STATE_LABELS={new:"새 단어",reviewing:"복습 중",learned:"학습 완료"};
+async function cycleReviewState(word){
+ if(!auth.userId){ toast("학습 상태를 저장하려면 로그인이 필요합니다."); return; }
+ const current=(vocabProgressCache[word]&&vocabProgressCache[word].reviewState)||"new";
+ const next=REVIEW_STATE_ORDER[(REVIEW_STATE_ORDER.indexOf(current)+1)%REVIEW_STATE_ORDER.length];
+ await updateVocabProgress(word,{reviewState:next,reviewedAt:new Date().toISOString()});
+ toast(`학습 상태: ${REVIEW_STATE_LABELS[next]}`);
  render();
 }
 // ---- #20A.16-17 saved study sessions (extends existing saveCurrent output;
