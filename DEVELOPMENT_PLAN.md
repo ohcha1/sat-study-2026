@@ -124,6 +124,21 @@ re-verification). Principal Review result: **APPROVE WITH CONDITIONS** (the one 
 known open defect remains against this baseline. See `docs/BASELINE_MULTI_AI_V2.md` for the full
 post-merge baseline record, including current checksums.
 
+- [x] **Gemini Summary UI: MERGED / COMPLETE** (follow-up feature, not part of the original 6
+  Developer Tasks). Adds an optional, user-triggered "AI 요약 (선택, Gemini)" action to the Summary
+  tab, reusing the existing `providerRegistry`/`aiRouter`/`gemini` adapter unmodified — no new
+  provider, no router change, no IndexedDB schema change. The existing local extractive summary
+  (`summaryEn`/`summaryKo`) is preserved and remains the default; the Gemini path is additive only
+  and never overwrites it. Sends only the passage text to the adapter — no title, grade, date, id,
+  or other metadata. Dormant unless a dev key is configured (checked at render time, fails closed
+  before any click, not just after). Gemini adapter: live API smoke test previously PASS (real
+  endpoint, `success=true`, `error=null`, ~1261ms — key never committed). Gemini Summary UI itself:
+  end-to-end mocked-response verification PASS (a second live-key UI test could not be performed
+  without exposing the browser-session key to the controlled review surface — see
+  `docs/BASELINE_MULTI_AI_V2.md`'s "Gemini Summary UI" section for the full verification-composition
+  rationale). Feature commit `8ec8921c944fbe334f631945901621a43b275752`, merged via
+  [`ohcha1/sat-study-2026#3`](https://github.com/ohcha1/sat-study-2026/pull/3).
+
 Verification method: no automated test framework exists in this repo (same as Milestones 1-2); this
 environment additionally had no Node/jsdom available, so verification used live in-browser testing
 (a local static server driven through the Browser tool) instead of the usual throwaway-jsdom
@@ -131,11 +146,15 @@ scripts — noted as a methodology deviation in `03-IMPLEMENTATION-LOG.md` for f
 awareness.
 
 **Release status: MERGED.** [`ohcha1/sat-study-2026#1`](https://github.com/ohcha1/sat-study-2026/pull/1)
-(Gold Master adoption + Multi-AI router + reliability work) and
-[`#2`](https://github.com/ohcha1/sat-study-2026/pull/2) (Risk C fix) have both merged into `main`
-with explicit CEO push/merge approval at each step. Official `main` HEAD:
-`0b60ba29951bb799c3fd3d8e30230e85636a19f0`. See `docs/BASELINE_MULTI_AI_V2.md` for the full
+(Gold Master adoption + Multi-AI router + reliability work),
+[`#2`](https://github.com/ohcha1/sat-study-2026/pull/2) (Risk C fix), and
+[`#3`](https://github.com/ohcha1/sat-study-2026/pull/3) (Gemini Summary UI) have all merged into
+`main` with explicit CEO push/merge approval at each step. Official `main` HEAD:
+`12da7b4b6fc6d3d5e46fa188ced5a20e9af6e5d6`. See `docs/BASELINE_MULTI_AI_V2.md` for the full
 post-merge baseline record.
+
+*(Prior text, preserved for history: "Official main HEAD: 0b60ba29951bb799c3fd3d8e30230e85636a19f0"
+— superseded by PR #3 above.)*
 
 *(Original text, preserved for history: "Development, QA (including a hot-fix cycle), and
 Principal Review are complete. Release packaging (`06-RELEASE-NOTES.md`) and the CEO push-approval
