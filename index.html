@@ -1916,6 +1916,87 @@ async function getChromeTranslator(){
  return chromeTranslatorInitPromise;
 }
 
+// Multi-AI V2 — see docs/milestones/milestone-03/02-ARCHITECTURE.md §3b (originally
+// docs/MULTI_AI_ARCHITECTURE_V2.md §3/§4/§7 on multi-ai-v2-dev). Minimal router scaffold: a
+// provider registry and aiRouter.request() with one adapter, legacy-translation, wrapping
+// translateSentenceReliable() below unchanged. No retry/cache/concurrency logic is duplicated or
+// moved here — all of that stays inside translateSentenceReliable() itself. Only analyze()'s and
+// retrySentence()'s dispatch call sites are routed through this (Milestone 3 Dev Task 4).
+const providerRegistry={};
+function registerProvider(adapter){providerRegistry[adapter.id]=adapter}
+registerProvider({
+ id:"legacy-translation",
+ offline:false,
+ costTier:"free",
+ canHandle(taskType){return taskType==="translation"},
+ async request(taskType,payload,options){
+  const r=await translateSentenceReliable(payload.text,options||{});
+  return {success:r.status==="success",data:r,model:null,error:r.status==="error"?"translation failed":null};
+ }
+});
+async function aiRouter_request(taskType,payload,options={}){
+ const started=Date.now();
+ const adapter=Object.values(providerRegistry).find(p=>p.canHandle(taskType));
+ if(!adapter)return {success:false,provider:null,model:null,data:null,latencyMs:Date.now()-started,fallbackUsed:false,error:"no provider available for "+taskType};
+ const r=await adapter.request(taskType,payload,options);
+ return {success:r.success,provider:adapter.id,model:r.model,data:r.data,latencyMs:Date.now()-started,fallbackUsed:false,error:r.error};
+}
+const aiRouter={request:aiRouter_request};
+// Multi-AI V2 — first real AI provider adapter: gemini, handling only taskType "summary".
+// Registered in the same providerRegistry as legacy-translation but does not affect it —
+// canHandle("translation") is false here, so aiRouter.request("translation",...) keeps resolving
+// to legacy-translation exactly as before. Nothing in this file calls aiRouter.request("summary",...)
+// yet, so this adapter is dormant: present and independently testable, but not wired into the
+// Summary tab (overview()) or any other UI call site in this milestone, per the CEO's "no
+// additional provider, Gemini stays dormant" instruction.
+//
+// DEVELOPMENT-ONLY key mechanism: no real key is ever hard-coded in this file. A developer may set
+// window.SAT_STUDIO_DEV_KEYS = { gemini: "..." } from the browser console or a local, untracked
+// script before this script block runs. If no key is present, the adapter fails cleanly —
+// success:false, no network call, no exception — and the rest of the app is unaffected. This
+// mechanism must never be used to ship a real key inside this distributable HTML file.
+const GEMINI_MODEL="gemini-3.1-flash-lite";
+function getDevApiKey(providerId){
+ try{
+  return (typeof window!=="undefined"&&window.SAT_STUDIO_DEV_KEYS&&window.SAT_STUDIO_DEV_KEYS[providerId])||null;
+ }catch(e){return null}
+}
+registerProvider({
+ id:"gemini",
+ offline:false,
+ costTier:"paid",
+ canHandle(taskType){return taskType==="summary"},
+ async request(taskType,payload,options){
+  const apiKey=getDevApiKey("gemini");
+  if(!apiKey){
+   return {success:false,data:null,model:GEMINI_MODEL,error:"gemini: no development API key configured (DEVELOPMENT ONLY mechanism)"};
+  }
+  const text=(payload&&payload.text)||"";
+  if(!text){
+   return {success:false,data:null,model:GEMINI_MODEL,error:"gemini: no text provided for summary"};
+  }
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),(options&&options.timeoutMs)||REQUEST_TIMEOUT_MS);
+  try{
+   const url="https://generativelanguage.googleapis.com/v1beta/models/"+GEMINI_MODEL+":generateContent?key="+encodeURIComponent(apiKey);
+   const res=await fetch(url,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    signal:controller.signal,
+    body:JSON.stringify({contents:[{parts:[{text:"Summarize the following passage in 2-3 sentences:\n\n"+text}]}]})
+   });
+   if(!res.ok)return {success:false,data:null,model:GEMINI_MODEL,error:"gemini: http "+res.status};
+   const json=await res.json();
+   const summary=json&&json.candidates&&json.candidates[0]&&json.candidates[0].content&&json.candidates[0].content.parts&&json.candidates[0].content.parts[0]&&json.candidates[0].content.parts[0].text;
+   if(!summary)return {success:false,data:null,model:GEMINI_MODEL,error:"gemini: empty response"};
+   return {success:true,data:{summary:summary.trim()},model:GEMINI_MODEL,error:null};
+  }catch(e){
+   return {success:false,data:null,model:GEMINI_MODEL,error:"gemini: "+(e&&e.message?e.message:"request failed")};
+  }finally{
+   clearTimeout(timer);
+  }
+ }
+});
 // Milestone 3 Dev Task 2 — see docs/milestones/milestone-03/02-ARCHITECTURE.md §3a. Reconciles the
 // Gold Master's translateSentence() (Chrome on-device primary, kept — this is the Gold Master's own
 // improvement over multi-ai-v2-dev) with Milestone 2's reliability chain (Lingva fallback,
@@ -2259,13 +2340,14 @@ async function analyze(){
  // 429-stop actually work — firing every sentence at once would dispatch them all before a single
  // 429 response could set mymemoryRateLimited, so the "stop after first 429" behavior would
  // otherwise have no effect. Each iteration mutates translations[i] in place and patches just that
- // row via updateTranslationRow(i) rather than re-rendering the whole tab. Dev Task 4 routes this
- // call through aiRouter.request('translation',...) instead of calling translateSentenceReliable()
- // directly; the sequential shape of this loop does not change.
+ // row via updateTranslationRow(i) rather than re-rendering the whole tab. Dispatches through
+ // aiRouter.request('translation',...) (Dev Task 4) rather than calling translateSentenceReliable()
+ // directly; the sequential shape of this loop is unaffected by routing through the adapter.
  let completed=0;
  document.getElementById("status").textContent=`한글 번역 진행 중… (0/${sents.length} 완료)`;
  for(let i=0;i<sents.length;i++){
-   const r=await translateSentenceReliable(sents[i]);
+   const routed=await aiRouter.request("translation",{text:sents[i]});
+   const r=routed.data;
    Object.assign(translations[i],{ko:r.ko,status:r.status,source:r.source});
    updateTranslationRow(i);
    completed++;
@@ -3208,14 +3290,15 @@ function updateTranslationRow(i){
  node.outerHTML=translationRowTemplate(state.analysis.translations[i],i);
 }
 // Exposed for the error row's retry button onclick, matching this file's existing inline-handler
-// convention (e.g. onclick="analyze()"). Re-runs the provider chain for only this one sentence,
-// bypassing the cache (a failed sentence is never cached, so bypassCache only matters if retrying a
-// sentence that somehow already succeeded), then patches just that row. Routed through aiRouter as
-// of Dev Task 4; calls translateSentenceReliable() directly until then.
+// convention (e.g. onclick="analyze()"). Re-runs the full provider chain for only this one
+// sentence, bypassing the cache (a failed sentence is never cached, so bypassCache only matters if
+// retrying a sentence that somehow already succeeded), then patches just that row. Routed through
+// aiRouter (Dev Task 4).
 async function retrySentence(i){
  const a=state.analysis;
  if(!a||!a.translations[i])return;
- const r=await translateSentenceReliable(a.translations[i].en,{bypassCache:true});
+ const routed=await aiRouter.request("translation",{text:a.translations[i].en},{bypassCache:true});
+ const r=routed.data;
  Object.assign(a.translations[i],{ko:r.ko,status:r.status,source:r.source});
  updateTranslationRow(i);
 }
