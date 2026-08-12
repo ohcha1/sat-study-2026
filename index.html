@@ -4152,25 +4152,43 @@ function evaluatePronunciation(target){
 function sat(a){return `<div class="card c-pink"><h3>SAT Practice · ${a.questions.length}문제</h3>중급~고급 수준의 중심 생각, 추론, 문장 기능, 근거, 어휘 문맥, 표현의 정확성 문제입니다.<div class="sat-warning">문제·선택지·해설은 영어로만 생성되도록 검증합니다.</div></div>${a.questions.map((q,i)=>`<div class="question" id="q${i}"><div class="small" style="font-weight:900;color:#6D4C7D;margin-bottom:7px">${q.type||"SAT Reading and Writing"}</div><b>${i+1}. ${q.q}</b>${q.choices.map((c,j)=>`<label class="choice"><input type="radio" name="q${i}" value="${j}"> ${String.fromCharCode(65+j)}. ${c}</label>`).join("")}<div class="explanation" id="exp${i}"><b>Explanation:</b> ${q.why}${q.whyKo?`<div class="ko" style="margin-top:6px">(${q.whyKo})</div>`:""}</div></div>`).join("")}<button class="btn btn-primary" onclick="gradeQuiz()">채점하기</button>`}
 function gradeQuiz(){let score=0;state.analysis.questions.forEach((q,i)=>{const picked=document.querySelector(`input[name=q${i}]:checked`);document.querySelectorAll(`#q${i} .choice`).forEach((el,j)=>{el.classList.remove("correct","wrong");if(j===q.ans)el.classList.add("correct");if(picked&&Number(picked.value)===j&&j!==q.ans)el.classList.add("wrong")});if(picked&&Number(picked.value)===q.ans)score++;document.getElementById(`exp${i}`).style.display="block"});toast(`점수: ${score} / ${state.analysis.questions.length}`);captureSatAttempt(score,state.analysis.questions.length);}
 
+// Milestone 3 Dev Task 5 — see docs/milestones/milestone-03/02-ARCHITECTURE.md §3c. Defensive read
+// helper (matches CODING_STANDARDS.md's "validate/handle localStorage reads defensively" rule and
+// multi-ai-v2-dev's Milestone 1 fix for corrupted localStorage): falls back to an empty list instead
+// of throwing, which the existing empty-state UI already covers. Replaces the Gold Master's bare
+// JSON.parse(localStorage.getItem(...)||"[]") calls below.
+function getSavedList(){try{return JSON.parse(localStorage.getItem("satStudioSaved")||"[]")}catch(e){return []}}
+// Milestone 3 Dev Task 5 — SAVE-1 guard, ported from multi-ai-v2-dev's Milestone 2 SAVE-1 fix.
+// Progressive per-row translation (Dev Task 3) means state.analysis is reachable while a row is
+// still 'loading' — without this guard, saving here (or via saveSessionForUser() below, which
+// copies the same state.analysis) could persist a permanently stuck "번역 중…" row if the saved set
+// were reopened later, since translationRowTemplate only offers a retry affordance for 'error', not
+// 'loading'. Blocking the save entirely here covers both persistence paths in one guard clause.
 function saveCurrent(){
  if(!state.analysis){toast("먼저 지문을 분석해 주세요.");return}
- const list=JSON.parse(localStorage.getItem("satStudioSaved")||"[]");
+ if(state.analysis.translations.some(t=>t.status==="loading")){toast("한글 번역이 진행 중입니다. 번역이 완료된 후 저장해 주세요.");return}
+ const list=getSavedList();
  const item={...state.analysis,id:Date.now()};
  list.unshift(item);localStorage.setItem("satStudioSaved",JSON.stringify(list));toast("학습자료를 저장했습니다.");
  if(auth.userId) saveSessionForUser();
 }
 function openSaved(){document.getElementById("drawer").classList.add("open");document.getElementById("overlay").classList.add("show");renderSaved()}
 function closeSaved(){document.getElementById("drawer").classList.remove("open");document.getElementById("overlay").classList.remove("show")}
+// Milestone 3 Dev Task 5 — title/grade/date now escaped (escapeHtml already defined in this file,
+// just wasn't applied here). The Gold Master's original renderSaved() interpolated these directly
+// into innerHTML unescaped — a live XSS regression against the pattern CODING_STANDARDS.md's
+// Security section explicitly calls out as a default defect risk, and against multi-ai-v2-dev's
+// Milestone 1 fix for this exact call site.
 function renderSaved(){
  const q=(document.getElementById("searchSaved").value||"").toLowerCase();
- const list=JSON.parse(localStorage.getItem("satStudioSaved")||"[]").filter(x=>(x.title+" "+x.text).toLowerCase().includes(q));
- document.getElementById("savedList").innerHTML=list.length?list.map(x=>`<div class="saved-item"><h4>${x.title}</h4><div class="saved-meta">${x.grade} · ${x.date} · 어휘 ${x.vocab.length}개 · 문제 ${x.questions.length}개</div><button class="btn btn-soft" onclick="loadSaved(${x.id})">열기</button> <button class="btn btn-danger" onclick="deleteSaved(${x.id})">삭제</button></div>`).join(""):"<div class='empty' style='height:240px'>저장된 자료가 없습니다.</div>";
+ const list=getSavedList().filter(x=>(x.title+" "+x.text).toLowerCase().includes(q));
+ document.getElementById("savedList").innerHTML=list.length?list.map(x=>`<div class="saved-item"><h4>${escapeHtml(x.title)}</h4><div class="saved-meta">${escapeHtml(x.grade)} · ${escapeHtml(x.date)} · 어휘 ${x.vocab.length}개 · 문제 ${x.questions.length}개</div><button class="btn btn-soft" onclick="loadSaved(${x.id})">열기</button> <button class="btn btn-danger" onclick="deleteSaved(${x.id})">삭제</button></div>`).join(""):"<div class='empty' style='height:240px'>저장된 자료가 없습니다.</div>";
 }
 function loadSaved(id){
- const list=JSON.parse(localStorage.getItem("satStudioSaved")||"[]"),x=list.find(v=>v.id===id);if(!x)return;
+ const list=getSavedList(),x=list.find(v=>v.id===id);if(!x)return;
  state.analysis=x;document.getElementById("title").value=x.title;document.getElementById("passage").value=x.text;document.getElementById("grade").value=x.grade;document.getElementById("analysisTitle").textContent=x.title;closeSaved();render();toast("저장된 학습자료를 열었습니다.");
 }
-function deleteSaved(id){let list=JSON.parse(localStorage.getItem("satStudioSaved")||"[]");list=list.filter(x=>x.id!==id);localStorage.setItem("satStudioSaved",JSON.stringify(list));renderSaved()}
+function deleteSaved(id){let list=getSavedList();list=list.filter(x=>x.id!==id);localStorage.setItem("satStudioSaved",JSON.stringify(list));renderSaved()}
 function newPassage(){document.getElementById("title").value="";document.getElementById("passage").value="";state.analysis=null;document.getElementById("analysisTitle").textContent="아직 분석하지 않았습니다";render()}
 function loadSample(){
  document.getElementById("title").value="The Role of Sleep in Memory";
