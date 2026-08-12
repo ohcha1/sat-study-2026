@@ -421,6 +421,32 @@ async function translateSentenceReliable(s,{bypassCache=false}={}){
  }
  return {ko:null,status:"error",source:null};
 }
+// Multi-AI V2 Phase 2A — see docs/MULTI_AI_ARCHITECTURE_V2.md §3/§4/§7. Minimal router scaffold:
+// a provider registry and aiRouter.request() with exactly one adapter, legacy-translation, which
+// wraps translateSentenceReliable() unchanged. No retry/cache/concurrency logic is duplicated or
+// moved here — all of that stays inside translateSentenceReliable() itself, per the architecture
+// doc's translation compatibility plan. Only analyze()'s dispatch call site is routed through this
+// in Phase 2A.
+const providerRegistry={};
+function registerProvider(adapter){providerRegistry[adapter.id]=adapter}
+registerProvider({
+ id:"legacy-translation",
+ offline:false,
+ costTier:"free",
+ canHandle(taskType){return taskType==="translation"},
+ async request(taskType,payload,options){
+  const r=await translateSentenceReliable(payload.text,options||{});
+  return {success:r.status==="success",data:r,model:null,error:r.status==="error"?"translation failed":null};
+ }
+});
+async function aiRouter_request(taskType,payload,options={}){
+ const started=Date.now();
+ const adapter=Object.values(providerRegistry).find(p=>p.canHandle(taskType));
+ if(!adapter)return {success:false,provider:null,model:null,data:null,latencyMs:Date.now()-started,fallbackUsed:false,error:"no provider available for "+taskType};
+ const r=await adapter.request(taskType,payload,options);
+ return {success:r.success,provider:adapter.id,model:r.model,data:r.data,latencyMs:Date.now()-started,fallbackUsed:false,error:r.error};
+}
+const aiRouter={request:aiRouter_request};
 function fallbackKoreanGloss(w){
  const map={
   epidemiological:"역학의, 질병 발생과 분포를 연구하는",immunocompromised:"면역력이 저하된",gastrointestinal:"위장관의",
@@ -487,7 +513,8 @@ async function analyze(){
  let completed=0;
  document.getElementById("status").textContent=`한글 번역 진행 중… (0/${sents.length} 완료)`;
  await runWithConcurrency(sents,CONCURRENCY_LIMIT,async(s,i)=>{
-   const r=await translateSentenceReliable(s);
+   const routed=await aiRouter.request("translation",{text:s});
+   const r=routed.data;
    Object.assign(translations[i],{ko:r.ko,status:r.status,source:r.source});
    updateTranslationRow(i);
    completed++;
