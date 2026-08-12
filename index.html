@@ -198,6 +198,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:18px}
         <button class="tab" data-tab="esl">ESL 회화</button>
         <button class="tab" data-tab="sat">SAT 문제</button>
         <button class="tab" data-tab="report">학습 리포트</button>
+        <button class="tab" data-tab="wordbook">단어장</button>
       </div>
       <div id="result" class="result"><div class="empty">지문을 입력하고 <b>지문 분석하기</b>를 누르세요.</div></div>
     </div>
@@ -3324,10 +3325,14 @@ function makeQuestions(text,sents,vocab,n){
 function render(){
  const r=document.getElementById("result"),a=state.analysis;
  if(state.active==="report"){ r.innerHTML=reportView(); renderReportAsync(); return; }
+ // Milestone 4 Dev Task 5 — see docs/milestones/milestone-04/02-ARCHITECTURE.md §3.3. Word Book is
+ // account-level (spans saved words across sessions), not tied to state.analysis, so it's handled
+ // here exactly like "report" — before the `if(!a)` guard — matching that existing precedent.
+ if(state.active==="wordbook"){ r.innerHTML=wordBookView(); renderWordBookAsync(); return; }
  if(!a){r.innerHTML='<div class="empty">지문을 입력하고 <b>지문 분석하기</b>를 누르세요.</div>';return}
  if(state.active==="overview") r.innerHTML=overview(a);
  if(state.active==="translation") r.innerHTML=translation(a);
- if(state.active==="vocab") r.innerHTML=vocab(a);
+ if(state.active==="vocab"){ r.innerHTML=vocab(a); ensureVocabProgressLoaded(); }
  if(state.active==="phrases") r.innerHTML=phrases(a);
  if(state.active==="grammar") r.innerHTML=grammar(a);
  if(state.active==="examples") r.innerHTML=examples(a);
@@ -3459,11 +3464,15 @@ function dictionaryLinks(word){
 // including the generic-fallback ones, by default; "전체 단어 보기" reveals the rest. Toggling only
 // changes what this function renders — a.vocab itself is never filtered/mutated (see the state
 // declaration's comment for why that matters).
-function vocab(a){
- const list=state.vocabShowAll?a.vocab:a.vocab.filter(v=>v.curated);
- const toggle=`<div class="card" style="padding:14px 16px"><button class="btn btn-soft" onclick="toggleVocabShowAll()">${state.vocabShowAll?"중요 SAT 단어만 보기":`전체 단어 보기 (${a.vocab.length}개)`}</button></div>`;
- if(list.length===0) return toggle+`<div class="empty" style="height:120px">이 지문에서는 사전에 있는 중요 단어를 찾지 못했습니다. 위 버튼으로 전체 단어를 확인해 보세요.</div>`;
- return toggle+list.map(v=>`<div class="card word-card${v.curated?"":" word-card-fallback"}">
+// Milestone 4 Dev Task 5 — extracted from vocab(a) so wordBookView()/renderWordBookAsync() can
+// render the exact same card for a word with no current a.vocab entry (a word saved from a past
+// analysis, reconstructed cold via buildVocabCardData()). progress is undefined for a never-saved/
+// never-seen word; treated as "not saved"/"new" (falsy), matching this codebase's established
+// defensive-default convention for missing IndexedDB fields.
+function vocabCardTemplate(v){
+ const progress=vocabProgressCache[v.word]||{};
+ const saved=!!progress.savedToWordBook;
+ return `<div class="card word-card${v.curated?"":" word-card-fallback"}">
  <div class="word-card-above">
   <div class="word-card-tags"><span class="level l${v.level}">${v.level}</span><span class="word-source-tag ${v.curated?"tag-curated":"tag-general"}">${v.curated?"사전 수록 단어":"일반 설명"}</span></div>
   <div class="word">${v.word}</div>
@@ -3473,14 +3482,20 @@ function vocab(a){
   <div class="meaning-block"><b>한국어 뜻</b><div style="margin-top:9px;line-height:1.8">${v.data[2]}</div></div>
   <div class="meaning-block"><b>English meaning</b><div style="margin-top:9px;line-height:1.8">${v.data[1]}</div></div>
   <div class="word-card-actions">
-   <button class="btn btn-soft" disabled title="다음 업데이트에서 제공됩니다">단어장에 저장</button>
+   <button class="btn ${saved?"btn-primary":"btn-soft"}" onclick='toggleWordBookSave(${JSON.stringify(v.word)})'>${saved?"저장됨 ✓ (제거)":"단어장에 저장"}</button>
    <span class="review-state-badge" title="다음 업데이트에서 제공됩니다">새 단어</span>
   </div>
  </div>
  <details class="word-card-more"><summary>더 보기 (동의어·반의어·예문)</summary>
   <div class="syn-ant"><div class="syn"><b>Synonyms · 동의어</b><div style="margin-top:7px">${v.data[5]||"문맥에 따라 확인"}</div></div><div class="ant"><b>Antonyms · 반의어</b><div style="margin-top:7px">${v.data[6]||"문맥에 따라 확인"}</div></div></div>
   <div class="example"><div class="example-title">High-school academic example</div>${v.data[3]}<br><span class="ko">(${v.data[4]})</span></div>${dictionaryLinks(v.word)}
- </details></div>`).join("")}
+ </details></div>`;
+}
+function vocab(a){
+ const list=state.vocabShowAll?a.vocab:a.vocab.filter(v=>v.curated);
+ const toggle=`<div class="card" style="padding:14px 16px"><button class="btn btn-soft" onclick="toggleVocabShowAll()">${state.vocabShowAll?"중요 SAT 단어만 보기":`전체 단어 보기 (${a.vocab.length}개)`}</button></div>`;
+ if(list.length===0) return toggle+`<div class="empty" style="height:120px">이 지문에서는 사전에 있는 중요 단어를 찾지 못했습니다. 위 버튼으로 전체 단어를 확인해 보세요.</div>`;
+ return toggle+list.map(vocabCardTemplate).join("")}
 
 function phrases(a){
  // Idioms & Phrases Quality #11 / #11.1: a.phrases is an array of match objects from
@@ -4509,6 +4524,9 @@ async function loginAccount(userId,password){
  toast(`${profile.displayName}님, 로그인되었습니다.`);
  renderAuthUI(); closeAuthPopover();
  if(state.active==="report") render();
+ // Milestone 4 Dev Task 5 — vocab/word book tabs are per-user (vocabProgressCache), so a login
+ // needs the same re-render-if-currently-shown treatment the report tab already gets above.
+ if(state.active==="vocab"||state.active==="wordbook") render();
  return true;
 }
 function logoutAccount(){
@@ -4517,6 +4535,7 @@ function logoutAccount(){
  toast("로그아웃되었습니다.");
  renderAuthUI(); closeAuthPopover();
  if(state.active==="report") render();
+ if(state.active==="vocab"||state.active==="wordbook") render();
 }
 
 function toggleAuthPopover(){
@@ -4721,6 +4740,34 @@ async function renderReportAsync(){
  <div class="card"><h3>최근 오답 리포트</h3>${wrongCards}</div>
  <div class="card"><h3>저장된 학습 자료</h3>${savedCards}</div>`;
 }
+// Milestone 4 Dev Task 5 — see docs/milestones/milestone-04/02-ARCHITECTURE.md §3.3. Account-level,
+// not tied to any single passage's analysis — same guest-mode gating pattern as reportView() above,
+// reworded for Word Book. Cards are rebuilt cold via buildVocabCardData(word) (Dev Task 1), not
+// read from any in-memory analysis, since a saved word may come from a different, no-longer-loaded
+// passage/session.
+function wordBookView(){
+ if(!auth.userId){
+  return `<div class="card c-blue"><h3>단어장</h3>
+  <div class="ko" style="line-height:1.8">로그인하지 않은 상태(게스트)입니다. 게스트 모드에서는 저장한 단어가 남지 않습니다.<br>단어장을 이용하려면 상단의 <b>로그인</b> 버튼에서 로컬 프로필을 만들어 주세요.</div></div>`;
+ }
+ return `<div id="wordBookRoot"><div class="empty" style="height:200px">단어장을 불러오는 중입니다...</div></div>`;
+}
+async function renderWordBookAsync(){
+ const root=document.getElementById("wordBookRoot");
+ if(!root||!auth.userId) return;
+ const rows=await idbGetAllByUser("vocabularyProgress",auth.userId);
+ vocabProgressCache=Object.fromEntries(rows.map(r=>[r.word,r]));
+ vocabProgressLoadedFor=auth.userId;
+ const liveRoot=document.getElementById("wordBookRoot");
+ if(!liveRoot) return; // user navigated away while this awaited — stale target, not an error
+ const saved=rows.filter(r=>r.savedToWordBook);
+ if(saved.length===0){
+  liveRoot.innerHTML=`<div class="empty" style="height:200px">아직 단어장에 저장한 단어가 없습니다. '학년별 단어' 탭에서 단어 카드의 <b>단어장에 저장</b> 버튼을 눌러보세요.</div>`;
+  return;
+ }
+ const cards=saved.map(r=>vocabCardTemplate(buildVocabCardData(r.word))).join("");
+ liveRoot.innerHTML=`<div class="card c-blue"><h3>단어장 · 저장한 단어 ${saved.length}개</h3><div class="ko">지문과 별개로 저장해 둔 단어입니다. 발음을 듣고, 학습 상태를 표시해 보세요.</div></div>${cards}`;
+}
 function errorAdvice(errorType){
  const map={
   "근거 확인 부족":"답을 고르기 전에 지문에서 해당 근거 문장을 반드시 찾아 표시하는 습관을 들이세요.",
@@ -4734,6 +4781,44 @@ function errorAdvice(errorType){
  return map[errorType]||"오답 노트를 참고해 비슷한 유형을 다시 연습하세요.";
 }
 
+// Milestone 4 Dev Task 5 — see docs/milestones/milestone-04/02-ARCHITECTURE.md §3.3. Word Book /
+// Review reuse the existing vocabularyProgress store (keyPath "id" = userId+"_"+word, existing
+// userId index) — additive fields only, no new object store or index. updateVocabProgress() is the
+// single read-merge-write entry point for every writer (the passive "seen" tracker below, the
+// explicit Word Book save toggle, and the Task 6 review-state change), so no writer can blind-
+// overwrite fields another writer already set.
+async function updateVocabProgress(word,patch){
+ if(!auth.userId) return null;
+ const id=auth.userId+"_"+word;
+ const existing=await idbGet("vocabularyProgress",id)||{};
+ const record={...existing,id,userId:auth.userId,word,...patch};
+ await idbPut("vocabularyProgress",record);
+ vocabProgressCache[word]=record;
+ return record;
+}
+// In-memory cache of the current user's vocabularyProgress rows, keyed by word, so vocab(a) (a
+// synchronous render function) can show saved/review state without making every render async — a
+// change that would ripple through render()'s many synchronous call sites file-wide. Loaded lazily
+// per user; render()'s "vocab" branch calls ensureVocabProgressLoaded() after each synchronous
+// render, which re-renders once (only if still on the vocab tab) after the async load resolves.
+let vocabProgressCache={},vocabProgressLoadedFor=undefined;
+async function ensureVocabProgressLoaded(){
+ if(vocabProgressLoadedFor===auth.userId) return;
+ if(!auth.userId){ vocabProgressCache={}; vocabProgressLoadedFor=null; if(state.active==="vocab") render(); return; }
+ const rows=await idbGetAllByUser("vocabularyProgress",auth.userId);
+ vocabProgressCache=Object.fromEntries(rows.map(r=>[r.word,r]));
+ vocabProgressLoadedFor=auth.userId;
+ if(state.active==="vocab") render();
+}
+// Milestone 4 Dev Task 5 — explicit per-word save/unsave, independent of whether the whole passage
+// is ever saved. Matches this file's existing inline-handler convention (onclick="analyze()" etc.).
+async function toggleWordBookSave(word){
+ if(!auth.userId){ toast("단어장에 저장하려면 로그인이 필요합니다."); return; }
+ const nowSaved=!(vocabProgressCache[word]&&vocabProgressCache[word].savedToWordBook);
+ await updateVocabProgress(word,{savedToWordBook:nowSaved,savedAt:nowSaved?new Date().toISOString():null});
+ toast(nowSaved?"단어장에 저장했습니다.":"단어장에서 제거했습니다.");
+ render();
+}
 // ---- #20A.16-17 saved study sessions (extends existing saveCurrent output;
 // does not duplicate static dictionary data -- stores only this session's
 // already-computed output) ----
@@ -4754,9 +4839,11 @@ async function saveSessionForUser(){
  }
  await idbPut("savedPassages",{id:uid("saved"),userId:auth.userId,sessionId,date:session.date,
   title:a.title,domain:a.grade||"",satScore});
- (a.vocab||[]).forEach(async v=>{
-  await idbPut("vocabularyProgress",{id:auth.userId+"_"+v.word,userId:auth.userId,word:v.word,lastSeen:session.date});
- });
+ // Milestone 4 Dev Task 5 — was a blind idbPut() with a fresh {id,userId,word,lastSeen} object,
+ // which would have silently erased any Word Book save / review state Dev Tasks 5-6 add on the
+ // same record (architecture doc §4 risk 2). Routed through updateVocabProgress()'s read-merge-write
+ // instead; behavior for lastSeen itself is unchanged.
+ (a.vocab||[]).forEach(v=>{ updateVocabProgress(v.word,{lastSeen:session.date}); });
 }
 async function openSavedSession(sessionId){
  const s=await idbGet("studySessions",sessionId);
