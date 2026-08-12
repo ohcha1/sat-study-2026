@@ -1827,7 +1827,11 @@ const fallbackExamplePool=[
  ["For homework, students wrote a new sentence in which “{word}” was essential to the meaning rather than decorative.","학생들은 숙제로 “{word}”가 장식적 표현이 아니라 의미에 꼭 필요한 새 문장을 작성했다."]
 ];
 let mediaRecorder=null, recordedChunks=[], recordedUrl=null, speechTranscript="", speechRecognition=null, recordingStartedAt=0, recordingDuration=0, audioContext=null, analyser=null, metricTimer=null, audioMetrics={frames:0,voiced:0,sumRms:0,sumSqRms:0,peak:0};
-const state={analysis:null,active:"overview"};
+// Milestone 4 Dev Task 4 — vocabShowAll is display-only state for the Vocabulary tab's Important/
+// Show-all toggle (see docs/milestones/milestone-04/02-ARCHITECTURE.md §3.2). It never mutates
+// a.vocab itself, so the Overview tab's word count and makeQuestions()'s vocab-in-context question
+// generator continue to see the full extracted list regardless of this toggle's state.
+const state={analysis:null,active:"overview",vocabShowAll:false};
 
 document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{
  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
@@ -3330,6 +3334,9 @@ function render(){
  if(state.active==="esl") r.innerHTML=esl(a);
  if(state.active==="sat") r.innerHTML=sat(a);
 }
+// Milestone 4 Dev Task 4 — flips the Vocabulary tab's display-only filter and re-renders. Matches
+// this file's existing inline-handler convention (onclick="analyze()" etc.).
+function toggleVocabShowAll(){ state.vocabShowAll=!state.vocabShowAll; render(); }
 // Feature: optional Gemini summary card. Additive only — does not replace or modify the local
 // extractive summary (summaryEn/summaryKo) rendered in the card just above it. Whether the button
 // or the disabled/informational note renders is decided synchronously here via the already-existing
@@ -3447,7 +3454,16 @@ function dictionaryLinks(word){
 // is unchanged here. v.contextSentence is new in this task and is NOT safe by construction — it's a
 // literal sentence from the student's pasted passage — so it is explicitly escaped, per
 // CODING_STANDARDS.md's default-to-escaping rule for any new innerHTML usage.
-function vocab(a){return a.vocab.map(v=>`<div class="card word-card${v.curated?"":" word-card-fallback"}">
+// Milestone 4 Dev Task 4 — see docs/milestones/milestone-04/02-ARCHITECTURE.md §3.2. Defaults to
+// "Important SAT Words" (curated entries only) so a student isn't shown every extracted word,
+// including the generic-fallback ones, by default; "전체 단어 보기" reveals the rest. Toggling only
+// changes what this function renders — a.vocab itself is never filtered/mutated (see the state
+// declaration's comment for why that matters).
+function vocab(a){
+ const list=state.vocabShowAll?a.vocab:a.vocab.filter(v=>v.curated);
+ const toggle=`<div class="card" style="padding:14px 16px"><button class="btn btn-soft" onclick="toggleVocabShowAll()">${state.vocabShowAll?"중요 SAT 단어만 보기":`전체 단어 보기 (${a.vocab.length}개)`}</button></div>`;
+ if(list.length===0) return toggle+`<div class="empty" style="height:120px">이 지문에서는 사전에 있는 중요 단어를 찾지 못했습니다. 위 버튼으로 전체 단어를 확인해 보세요.</div>`;
+ return toggle+list.map(v=>`<div class="card word-card${v.curated?"":" word-card-fallback"}">
  <div class="word-card-above">
   <div class="word-card-tags"><span class="level l${v.level}">${v.level}</span><span class="word-source-tag ${v.curated?"tag-curated":"tag-general"}">${v.curated?"사전 수록 단어":"일반 설명"}</span></div>
   <div class="word">${v.word}</div>
