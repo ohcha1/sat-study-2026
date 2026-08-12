@@ -3288,14 +3288,50 @@ function render(){
  if(state.active==="esl") r.innerHTML=esl(a);
  if(state.active==="sat") r.innerHTML=sat(a);
 }
-function overview(a){return `<div class="summary-grid">
+// Feature: optional Gemini summary card. Additive only — does not replace or modify the local
+// extractive summary (summaryEn/summaryKo) rendered in the card just above it. Whether the button
+// or the disabled/informational note renders is decided synchronously here via the already-existing
+// getDevApiKey() (Multi-AI V2 Dev Task 4, unmodified), so this fails closed before any click, not
+// just after one, when no window.SAT_STUDIO_DEV_KEYS.gemini is configured.
+function overview(a){const geminiKeyConfigured=!!getDevApiKey("gemini");return `<div class="summary-grid">
  <div class="stat c-blue"><strong>${a.sents.length}</strong><span>문장 수</span></div>
  <div class="stat c-pink"><strong>${a.vocab.length}</strong><span>핵심 어휘</span></div>
  <div class="stat c-purple"><strong>${a.phrases.length}</strong><span>숙어·구문</span></div>
  <div class="stat c-yellow"><strong>${a.questions.length}</strong><span>SAT 문제</span></div></div>
  <div class="card c-mint"><h3>학습 흐름</h3>전체 해석 → 학년별 단어 → 숙어·문법 → 예문·ESL → SAT 문제 풀이</div>
  <div class="card c-purple"><div class="en">${a.summaryEn}</div><div class="ko" style="margin-top:9px">(${a.summaryKo})</div></div>
+ <div class="card"><h3>AI 요약 (선택, Gemini)</h3><div class="small">위 요약은 지문에서 자동으로 추출한 핵심 문장입니다. 아래에서 Gemini가 생성한 요약을 추가로 확인할 수 있습니다 (선택 사항).</div>${geminiKeyConfigured?`<div style="margin-top:10px"><button class="btn btn-soft" onclick="loadGeminiSummary()">Gemini 요약 보기</button></div><div id="geminiSummaryResult" style="margin-top:10px"></div>`:`<div class="small" style="margin-top:10px">Gemini 요약은 개발자 키가 설정된 경우에만 사용할 수 있는 선택 기능입니다.</div>`}</div>
  <div class="card c-blue"><h3>추천 학습 방법</h3><div class="ko">먼저 번역을 가리고 지문을 읽은 뒤, 단어와 구문을 확인하고 마지막에 SAT 문제를 풀어 보세요.</div></div>`}
+// User-triggered only (button onclick, matching this file's existing inline-handler convention) —
+// never fires automatically just from viewing the Summary tab. Routes through the same
+// providerRegistry/aiRouter the translation feature already uses (Multi-AI V2 Dev Task 4); no new
+// provider, no router change. Only the passage text is sent — no title/grade/date/id or any other
+// metadata — matching the gemini adapter's own student-privacy comment at its definition. Guarded
+// with the same synchronous in-flight-flag/try-finally pattern just established for analyze()'s
+// Risk C fix, so a rapid double-click can't fire two overlapping requests.
+let geminiSummaryInFlight=false;
+async function loadGeminiSummary(){
+ if(geminiSummaryInFlight)return;
+ const root=document.getElementById("geminiSummaryResult");
+ if(!root||!state.analysis)return;
+ geminiSummaryInFlight=true;
+ root.innerHTML=`<div class="small">Gemini 요약을 불러오는 중…</div>`;
+ try{
+  const routed=await aiRouter.request("summary",{text:state.analysis.text});
+  // Re-fetch the node: state.active/state.analysis may have changed while this awaited (e.g. the
+  // user switched tabs or started a new analysis), in which case this DOM node no longer exists or
+  // no longer represents the current analysis — a no-op is correct, not a stale write.
+  const liveRoot=document.getElementById("geminiSummaryResult");
+  if(!liveRoot) return;
+  if(routed.success&&routed.data&&routed.data.summary){
+   liveRoot.innerHTML=`<div class="ko">${escapeHtml(routed.data.summary)}</div>`;
+  }else{
+   liveRoot.innerHTML=`<div class="small">Gemini 요약을 불러오지 못했습니다: ${escapeHtml(routed.error||"알 수 없는 오류")}</div>`;
+  }
+ }finally{
+  geminiSummaryInFlight=false;
+ }
+}
 // Milestone 3 Dev Task 3 — see docs/milestones/milestone-03/02-ARCHITECTURE.md §3a. Ported from
 // multi-ai-v2-dev's Milestone 2 Dev Task 4/6 (translationRowTemplate/updateTranslationRow), adapted
 // to this file's existing .sentence/.en/.ko card markup rather than importing new markup. Renders
