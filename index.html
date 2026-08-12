@@ -1825,10 +1825,16 @@ document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{
 
 function splitSentences(t){return (t.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[]).map(x=>x.trim()).filter(Boolean)}
 function words(t){return (t.toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g)||[])}
+// Milestone 3 Dev Task 2 — see docs/milestones/milestone-03/02-ARCHITECTURE.md §3a step 5. Returns
+// a structured {ko,matched} result instead of the old bare string, which returned the misleading
+// "번역 서비스를 불러오지 못했습니다" placeholder as if it were a real translation on no-match —
+// exactly the pattern Milestone 2 eliminated on multi-ai-v2-dev, and that CODING_STANDARDS.md's
+// "prefer explicit error/loading states over silent fallbacks" rule warns against. Substitution
+// logic itself is unchanged.
 function simpleTranslate(s){
  const map=[["Many researchers","많은 연구자들은"],["have questioned","의문을 제기해 왔다"],["traditional explanation","전통적인 설명"],["Recent studies","최근 연구들은"],["sleep","수면"],["memory","기억"],["students","학생들"],["evidence","증거"],["as a result","그 결과"],["in contrast","반대로"],["significant","중요한"],["information","정보"],["study","연구"],["researchers","연구자들은"],["demonstrate","보여 준다"],["may","~할 수 있다"],["better","더 잘"],["after","후에"],["performed","수행했다"],["concluded","결론 내렸다"],["influence","영향을 주다"],["cognitive performance","인지 수행 능력"],["stress","스트레스"],["poor sleep habits","좋지 않은 수면 습관"],["weaker results","더 낮은 결과"]];
  let out=s;map.forEach(([a,b])=>out=out.replace(new RegExp(a,"gi"),b));
- return out===s ? "번역 서비스를 불러오지 못했습니다. 인터넷 연결을 확인한 뒤 다시 분석해 주세요." : out;
+ return {ko:out, matched: out!==s};
 }
 // --- CEO Translation Finalization #7 (2026-08-08): confirmed on the CEO's
 // real Mac that Chrome's built-in Translator works (self.Translator exists,
@@ -1852,7 +1858,30 @@ function simpleTranslate(s){
 const translationCache=new Map();
 let mymemoryRateLimited=false; // reset every analyze() run (see Fix #5)
 const MYMEMORY_RATE_LIMIT_MSG="자동 번역이 일시적으로 제한되어 이 문장은 번역되지 않았습니다. 잠시 후 다시 분석해 주세요.";
-let providerUsageThisRun={chrome:0,mymemory:0,local:0}; // reset every analyze() run, logged once at the end (see analyze())
+let providerUsageThisRun={chrome:0,mymemory:0,lingva:0,local:0}; // reset every analyze() run, logged once at the end (see analyze())
+// Milestone 3 Dev Task 2 — see docs/milestones/milestone-03/02-ARCHITECTURE.md §3a. Ported from
+// multi-ai-v2-dev's Milestone 2 Dev Task 3 unchanged: timeout wrapper, retry backoff delay, and the
+// ordered list of keyless, CORS-friendly Lingva Translate mirrors (never a single instance, so one
+// mirror's outage doesn't take down the whole fallback tier).
+const REQUEST_TIMEOUT_MS=8000, RETRY_BACKOFF_MS=800;
+const LINGVA_INSTANCES=["translate.plausibility.cloud","lingva.garudalinux.org"];
+function fetchWithTimeout(url,ms){
+ const controller=new AbortController();
+ const timer=setTimeout(()=>controller.abort(),ms);
+ return fetch(url,{signal:controller.signal}).finally(()=>clearTimeout(timer));
+}
+async function translateLingva(s){
+ for(const host of LINGVA_INSTANCES){
+  try{
+   const url="https://"+host+"/api/v1/en/ko/"+encodeURIComponent(s);
+   const res=await fetchWithTimeout(url,REQUEST_TIMEOUT_MS);
+   if(!res.ok)continue;
+   const data=await res.json();
+   if(data&&typeof data.translation==="string"&&data.translation.trim())return data.translation;
+  }catch(e){}
+ }
+ return null;
+}
 
 let chromeTranslatorInstance=null;
 let chromeTranslatorState="uninitialized"; // uninitialized | initializing | ready | temporarily-failed | unsupported
@@ -1886,60 +1915,106 @@ async function getChromeTranslator(){
  return chromeTranslatorInitPromise;
 }
 
-async function translateSentence(s){
+// Milestone 3 Dev Task 2 — see docs/milestones/milestone-03/02-ARCHITECTURE.md §3a. Reconciles the
+// Gold Master's translateSentence() (Chrome on-device primary, kept — this is the Gold Master's own
+// improvement over multi-ai-v2-dev) with Milestone 2's reliability chain (Lingva fallback,
+// retry/backoff, timeout-wrapped fetches, structured {ko,status,source} result — ported from
+// multi-ai-v2-dev, previously named translateSentenceReliable() there). Kept under that same name
+// since aiRouter's legacy-translation adapter (Dev Task 4), translationRowTemplate(), retrySentence(),
+// and saveCurrent()'s SAVE-1 guard (Dev Task 3/5) all depend on this exact function name and return
+// shape, not on any particular implementation.
+//
+// Dispatch stays sequential in analyze() (Dev Task 3) — NOT concurrent/runWithConcurrency — because
+// the Gold Master's MyMemory 429-stop below only works if sentences are translated one at a time;
+// firing them concurrently would let several requests observe mymemoryRateLimited===false before
+// the first 429 response sets it. See §1 "Rejected alternative" in the architecture doc for the
+// full rationale. Do not reintroduce concurrent dispatch for this function.
+async function translateSentenceReliable(s,{bypassCache=false}={}){
  const key=s.trim();
- if(translationCache.has(key)) return translationCache.get(key);
+ if(!bypassCache&&translationCache.has(key)) return translationCache.get(key);
 
- // PRIMARY: Chrome built-in Translator (on-device, no network request)
+ // PRIMARY: Chrome built-in Translator (on-device, no network request) — Gold Master's addition, unchanged
  const translator=await getChromeTranslator();
  if(translator){
    try{
      const result=await translator.translate(key);
      if(result&&result.trim()&&result.trim().toLowerCase()!==key.toLowerCase()){
-       translationCache.set(key,result);
+       const success={ko:result,status:"success",source:"chrome"};
+       translationCache.set(key,success);
        providerUsageThisRun.chrome++;
-       return result;
+       return success;
      }
    }catch(e){
      // per-sentence runtime failure only — does not poison chromeTranslatorState;
      // the next sentence will still try Chrome again. No console log here to
      // avoid flooding on a long passage; the end-of-analysis summary log
-     // (see analyze()) reports the aggregate Chrome/MyMemory/Local counts.
+     // (see analyze()) reports the aggregate Chrome/MyMemory/Lingva/Local counts.
    }
  }
 
- // SECONDARY FALLBACK: MyMemory (unchanged 429-aware logic from Fix #5)
- if(mymemoryRateLimited){
-   providerUsageThisRun.local++;
-   return MYMEMORY_RATE_LIMIT_MSG;
- }
- try{
-   const url="https://api.mymemory.translated.net/get?q="+encodeURIComponent(s)+"&langpair=en|ko";
-   const res=await fetch(url);
-   if(res.status===429){
-     mymemoryRateLimited=true;
-     console.warn("[SAT Studio Translation] MyMemory rate-limited (HTTP 429) — pausing further MyMemory requests for this analysis.");
-     providerUsageThisRun.local++;
-     return MYMEMORY_RATE_LIMIT_MSG;
+ // SECONDARY: MyMemory. 429-stop is the Gold Master's fix, preserved as-is (once tripped, this
+ // tier is skipped entirely for the rest of the analysis run — no retry, straight to Lingva).
+ // Below the 429-stop check, one retry with RETRY_BACKOFF_MS backoff on a non-429 failure is
+ // Milestone 2's addition, layered on top without touching the 429 behavior above it.
+ if(!mymemoryRateLimited){
+   async function tryMyMemory(){
+     const url="https://api.mymemory.translated.net/get?q="+encodeURIComponent(s)+"&langpair=en|ko";
+     const res=await fetchWithTimeout(url,REQUEST_TIMEOUT_MS);
+     if(res.status===429){
+       mymemoryRateLimited=true;
+       console.warn("[SAT Studio Translation] MyMemory rate-limited (HTTP 429) — pausing further MyMemory requests for this analysis.");
+       throw new Error("mymemory rate-limited");
+     }
+     if(!res.ok) throw new Error("mymemory http error");
+     const data=await res.json();
+     const translated=data?.responseData?.translatedText;
+     if(translated&&translated.toLowerCase()!==s.toLowerCase())return translated;
+     throw new Error("mymemory returned no usable translation");
    }
-   if(!res.ok) throw new Error("translation failed");
-   const data=await res.json();
-   const translated=data?.responseData?.translatedText;
-   if(translated&&translated.toLowerCase()!==s.toLowerCase()){
-     translationCache.set(key,translated);
+   try{
+     const translated=await tryMyMemory();
+     const success={ko:translated,status:"success",source:"mymemory"};
+     translationCache.set(key,success);
      providerUsageThisRun.mymemory++;
-     return translated;
+     return success;
+   }catch(e1){
+     if(!mymemoryRateLimited){
+       await new Promise(r=>setTimeout(r,RETRY_BACKOFF_MS));
+       try{
+         const translated=await tryMyMemory();
+         const success={ko:translated,status:"success",source:"mymemory"};
+         translationCache.set(key,success);
+         providerUsageThisRun.mymemory++;
+         return success;
+       }catch(e2){}
+     }
    }
- }catch(e){}
+ }
 
- // FINAL FALLBACK: existing local, honest, non-network fallback
+ // TERTIARY: Lingva — Milestone 2's addition, new to the Gold Master
+ const lingva=await translateLingva(s);
+ if(lingva){
+   const success={ko:lingva,status:"success",source:"lingva"};
+   translationCache.set(key,success);
+   providerUsageThisRun.lingva++;
+   return success;
+ }
+
+ // FINAL FALLBACK: existing local, honest, non-network phrase map
+ const phrase=simpleTranslate(s);
+ if(phrase.matched){
+   const success={ko:phrase.ko,status:"success",source:"phrasemap"};
+   translationCache.set(key,success);
+   providerUsageThisRun.local++;
+   return success;
+ }
  providerUsageThisRun.local++;
- return simpleTranslate(s);
+ return {ko:null,status:"error",source:null};
 }
 // --- CEO Micro-Improvement #4 (2026-08-07): smallest deterministic extractive
 // summarizer for the Summary tab's "핵심 요약". Reuses words()/splitSentences()
 // already defined above; does not call any external service itself — the
-// Korean rendering of its output goes through the existing translateSentence()
+// Korean rendering of its output goes through the existing translateSentenceReliable()
 // pipeline, unchanged, only on the short summary text (not the whole passage).
 const SUMMARY_STOPWORDS=new Set(["the","a","an","of","to","in","on","and","or","but","is","are","was","were","be","been","being","that","this","these","those","it","its","as","at","by","for","from","has","have","had","he","she","they","we","you","i","his","her","their","our","your","with","which","who","whom","what","when","where","why","how","not","no","nor","so","than","then","there","here","also","into","about","over","under","between","among","during","before","after","above","below","up","down","out","off","again","further","once","do","does","did","doing","can","could","should","would","may","might","must","shall","will","just","very","s","t","don"]);
 function summarizeSentences(sents){
@@ -2126,7 +2201,7 @@ async function analyze(){
  const text=document.getElementById("passage").value.trim();
  if(!text){toast("영어 지문을 입력해 주세요.");return}
  mymemoryRateLimited=false; // fresh retry chance for each new analysis run; translationCache itself is NOT cleared, so identical sentences from earlier analyses stay cached
- providerUsageThisRun={chrome:0,mymemory:0,local:0};
+ providerUsageThisRun={chrome:0,mymemory:0,lingva:0,local:0};
  // "temporarily-failed" (a recoverable Chrome init hiccup) gets a fresh retry
  // each new analysis; "ready" and "unsupported" are untouched — one Translator
  // instance persists for the whole page session once it's actually ready.
@@ -2171,15 +2246,18 @@ async function analyze(){
  // 429 response could set mymemoryRateLimited, so the "stop after first
  // 429" rule from the CEO's directive would otherwise have no effect.
  const translated=[];
- for(const s of sents){ translated.push(await translateSentence(s)); }
- console.log("[SAT Studio Translation]\nChrome: "+providerUsageThisRun.chrome+"\nMyMemory: "+providerUsageThisRun.mymemory+"\nLocal: "+providerUsageThisRun.local);
- const translations=sents.map((s,i)=>({en:s,ko:translated[i]}));
+ // Milestone 3 Dev Task 2 — direct call for now (sequential, unchanged from the Gold Master's own
+ // loop). Dev Tasks 3/4 replace this call with aiRouter.request('translation',...) and add
+ // progressive per-row UI updates; the sequential shape of this loop itself does not change.
+ for(const s of sents){ translated.push(await translateSentenceReliable(s)); }
+ console.log("[SAT Studio Translation]\nChrome: "+providerUsageThisRun.chrome+"\nMyMemory: "+providerUsageThisRun.mymemory+"\nLingva: "+providerUsageThisRun.lingva+"\nLocal: "+providerUsageThisRun.local);
+ const translations=sents.map((s,i)=>({en:s,ko:translated[i].ko,status:translated[i].status,source:translated[i].source}));
  const summarySents=summarizeSentences(sents);
  const summaryEn=summarySents.join(" ");
  // Summary sentences are always exact members of `sents` (summarizeSentences
  // never rewrites text), so every one of them was just translated above —
- // reuse translationCache instead of calling translateSentence()/MyMemory again.
- const summaryKo=summarySents.map(s=>translationCache.get(s.trim())||simpleTranslate(s)).join(" ");
+ // reuse translationCache instead of calling translateSentenceReliable()/MyMemory again.
+ const summaryKo=summarySents.map(s=>{const c=translationCache.get(s.trim());return (c&&c.ko)||simpleTranslate(s).ko;}).join(" ");
  const qcount=Number(document.getElementById("qcount").value);
  const questions=makeQuestions(text,sents,vocab,qcount);
  state.analysis={text,sents,vocab,phrases,translations,questions,summaryEn,summaryKo,title:document.getElementById("title").value||"제목 없는 학습자료",grade:document.getElementById("grade").value,date:new Date().toLocaleString("ko-KR")};
