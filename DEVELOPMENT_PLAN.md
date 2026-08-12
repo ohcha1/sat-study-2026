@@ -94,10 +94,14 @@ translation reliability improvements. Full document set:
   saves, and deleting one colliding item deleted both (confirmed data loss). Fixed with a
   collision-safe increment, fully backward compatible with existing saved records. Both
   independently re-verified resolved. — commit `9c4cc73`
-- **Deferred, not fixed (Medium, logged as backlog):** Risk C — calling analyze() again while one is
-  already running can race; the common outcome is benign ("last request wins"), with a narrower
-  console-only failure mode under an uncommon combination of conditions. No crash, no data loss, no
-  security exposure. Candidate for a future milestone.
+- [x] **RESOLVED (was: Deferred, Medium, logged as backlog):** Risk C — calling analyze() again
+  while one is already running could race; the common outcome was benign ("last request wins"),
+  with a narrower console-only failure mode under an uncommon combination of conditions. No crash,
+  no data loss, no security exposure. Fixed via a synchronous in-flight guard on `analyze()`
+  (`try`/`finally`-protected; a second call while one is active is now a silent no-op) — commit
+  `196fac857d35a6d1c59526e55c2ba46191c1d6dc`, merged via
+  [`ohcha1/sat-study-2026#2`](https://github.com/ohcha1/sat-study-2026/pull/2). Verified with 5
+  focused runtime tests; no other function touched.
 - **Multi-AI Router status:** live and wired for translation (`legacy-translation` adapter). Dormant
   `gemini` adapter (summary-only) is present and isolated (no UI call site invokes it, still
   requires `window.SAT_STUDIO_DEV_KEYS.gemini`, fails closed without one). **Update (metadata-sync
@@ -111,10 +115,14 @@ translation reliability improvements. Full document set:
   object stores), photo/PDF/HEIC import (`importDocument`/`extractPdfPassage`/`getPdfLibrary`/
   `getDocumentOcrWorker`/`convertHeicForOcr`), and all 7 responsive `@media` blocks.
 
-Exit criteria: met, with the one deferred item above. QA result: **PASS** (all 10 PM-Spec
-acceptance criteria met after the hot-fix; see `04-QA-REPORT.md` and its focused re-verification).
-Principal Review result: **APPROVE WITH CONDITIONS** (the one condition — this
+Exit criteria: met — no deferred items remain (Risk C resolved above). QA result: **PASS** (all 10
+PM-Spec acceptance criteria met after the hot-fix; see `04-QA-REPORT.md` and its focused
+re-verification). Principal Review result: **APPROVE WITH CONDITIONS** (the one condition — this
 `DEVELOPMENT_PLAN.md` update — is satisfied by this entry; see `05-REVIEW-REPORT.md`).
+
+**Multi-AI V2 stabilization: COMPLETE.** All three QA-identified risks (A, B, C) are resolved; no
+known open defect remains against this baseline. See `docs/BASELINE_MULTI_AI_V2.md` for the full
+post-merge baseline record, including current checksums.
 
 Verification method: no automated test framework exists in this repo (same as Milestones 1-2); this
 environment additionally had no Node/jsdom available, so verification used live in-browser testing
@@ -122,9 +130,16 @@ environment additionally had no Node/jsdom available, so verification used live 
 scripts — noted as a methodology deviation in `03-IMPLEMENTATION-LOG.md` for future milestones'
 awareness.
 
-**Release status:** Development, QA (including a hot-fix cycle), and Principal Review are complete.
-Release packaging (`06-RELEASE-NOTES.md`) and the CEO push-approval gate are the only remaining
-steps — this milestone has not been pushed or merged to `main`.
+**Release status: MERGED.** [`ohcha1/sat-study-2026#1`](https://github.com/ohcha1/sat-study-2026/pull/1)
+(Gold Master adoption + Multi-AI router + reliability work) and
+[`#2`](https://github.com/ohcha1/sat-study-2026/pull/2) (Risk C fix) have both merged into `main`
+with explicit CEO push/merge approval at each step. Official `main` HEAD:
+`0b60ba29951bb799c3fd3d8e30230e85636a19f0`. See `docs/BASELINE_MULTI_AI_V2.md` for the full
+post-merge baseline record.
+
+*(Original text, preserved for history: "Development, QA (including a hot-fix cycle), and
+Principal Review are complete. Release packaging (`06-RELEASE-NOTES.md`) and the CEO push-approval
+gate are the only remaining steps — this milestone has not been pushed or merged to `main`.")*
 
 ## Milestone 3 — Dictionary Upgrade
 
