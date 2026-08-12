@@ -99,10 +99,14 @@ translation reliability improvements. Full document set:
   console-only failure mode under an uncommon combination of conditions. No crash, no data loss, no
   security exposure. Candidate for a future milestone.
 - **Multi-AI Router status:** live and wired for translation (`legacy-translation` adapter). Dormant
-  `gemini` adapter (summary-only) is present, isolated, and fails closed without a
-  `window.SAT_STUDIO_DEV_KEYS.gemini` value — **not yet exercised against a live Gemini API key**;
-  its request-building/response-parsing logic has only been verified via its fail-closed path, not
-  a real API round-trip. No additional provider was added.
+  `gemini` adapter (summary-only) is present and isolated (no UI call site invokes it, still
+  requires `window.SAT_STUDIO_DEV_KEYS.gemini`, fails closed without one). **Update (metadata-sync
+  session): a live API smoke test against the real Gemini endpoint has since passed** —
+  `gemini-3.1-flash-lite`, `success=true`, `error=null`, ~1261ms observed latency; the key used was
+  browser-session-only and was never committed to the repository. It remains dormant/inactive by
+  default for end users — this confirms the adapter's request/response handling works end-to-end
+  against the real API, not just its fail-closed path, without changing default behavior. No
+  additional provider was added.
 - **Preserved unmodified (confirmed via direct diff, not just re-tested):** IndexedDB schema (all 6
   object stores), photo/PDF/HEIC import (`importDocument`/`extractPdfPassage`/`getPdfLibrary`/
   `getDocumentOcrWorker`/`convertHeicForOcr`), and all 7 responsive `@media` blocks.
