@@ -224,6 +224,17 @@ verification detail per Dev Task.
 `feature/vocab-experience-upgrade`, not yet pushed, merged, or released — QA/Principal Review/CEO
 push-approval have not yet occurred for this milestone.
 
+**Update (2026-08-12, recorded by Release Manager packaging):** QA passed (10/10 acceptance
+criteria — `docs/milestones/milestone-04/04-QA-REPORT.md`). Principal Review found one MEDIUM
+concurrency finding (lost-update race between Word Book save and Review-state updates on the same
+word), which was fixed via a scoped per-word-serialization hot-fix (commit `3143123`) and
+independently re-verified — Principal Review verdict is now **APPROVE**
+(`docs/milestones/milestone-04/05-REVIEW-REPORT.md` §0/§13). Packaged for CEO push approval in
+`docs/milestones/milestone-04/06-RELEASE-NOTES.md`. Still **not pushed, not merged** — CEO push
+approval remains the only remaining gate. One LOW item (unsave doesn't reset `reviewState`) and one
+`BLOCKED_HUMAN_INPUT` item (real Gemini `vocab-context` live-key test) are both accepted/deferred,
+non-blocking.
+
 ## Milestone 4 — UI Improvements
 
 Goal: address usability gaps surfaced in the review, without changing underlying analysis logic.
