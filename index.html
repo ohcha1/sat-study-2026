@@ -4879,7 +4879,14 @@ function reportView(){
 async function renderReportAsync(){
  const root=document.getElementById("reportRoot");
  if(!root||!auth.userId) return;
- const [attempts,sessions]=await Promise.all([idbGetAllByUser("satAttempts",auth.userId),idbGetAllByUser("studySessions",auth.userId)]);
+ const [attemptsAll,sessions]=await Promise.all([idbGetAllByUser("satAttempts",auth.userId),idbGetAllByUser("studySessions",auth.userId)]);
+ // Milestone 5 Dev Task 4 — see docs/milestones/milestone-05/02-ARCHITECTURE.md §3.5. Excludes
+ // attemptKind:"retry" records from every aggregate stat below so a coached retry (answered right
+ // after seeing the correct answer/explanation) can't inflate accuracy/trend beyond genuine unaided
+ // performance. Absent on every pre-Milestone-5 record, so this is a no-op for existing data.
+ // wrongAnswers (queried separately below) is intentionally NOT filtered — a still-wrong retry is a
+ // genuine, currently-unresolved gap and belongs in "최근 오답".
+ const attempts=attemptsAll.filter(a=>a.attemptKind!=="retry");
  const total=attempts.length, correct=attempts.filter(a=>a.isCorrect).length, wrong=total-correct;
  const accuracy=total?Math.round((correct/total)*100):0;
  const lastDate=attempts.length?attempts.map(a=>a.date).sort().slice(-1)[0]:null;
