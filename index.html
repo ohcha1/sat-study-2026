@@ -56,22 +56,29 @@ textarea{min-height:480px;resize:vertical;line-height:1.65}
 .sentence{padding:10px 0;border-bottom:1px dashed #D1D5DB}.sentence:last-child{border-bottom:none}
 .sentence.loading{background:var(--sky);border-radius:9px;padding:12px 14px;margin:4px 0;border-bottom:none;animation:sentencePulse 1.4s ease-in-out infinite}.sentence.loading .ko{color:var(--navy2)}@keyframes sentencePulse{0%,100%{opacity:1}50%{opacity:.5}}.sentence.error{background:rgba(185,28,28,.06);border-left:3px solid var(--danger);border-radius:9px;padding:12px 14px;margin:4px 0;border-bottom:none}.sentence.error .ko{color:var(--danger);font-weight:700}.sentence.error .btn{margin-top:8px}
 .en{font-weight:650;line-height:1.55}.ko{color:#475569;line-height:1.55;margin-top:5px}
-.word-card{display:block}
+.word-card{display:grid;grid-template-columns:minmax(230px,30%) 1fr;column-gap:26px;align-items:start}
 .word-card-fallback{background:#F8FAFC}
-.word-card-tags{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.word-card-left{display:flex;flex-direction:column;min-width:0}
+.word-card-meta-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.level-chip{display:inline-flex;align-items:center;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:800;background:#FED7AA;color:#9A3412;flex-shrink:0}
 .word-source-tag{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:800}
 .tag-curated{background:#DBEAFE;color:#1E3A5F}
 .tag-general{background:#F1F5F9;color:#64748B}
 .context-meaning{border-left:4px solid #FDBA74}
-.word-card-actions{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
+.word-card-word{font-weight:800;color:var(--navy);font-size:21px;line-height:1.3;margin-top:10px;overflow-wrap:anywhere;word-break:break-word}
+.word-card-subline{display:flex;align-items:baseline;gap:7px;margin-top:6px;flex-wrap:wrap;min-width:0}
+.word-card-subline .ipa{font-family:Georgia,"Times New Roman",serif;font-size:14px;color:#475569;font-weight:600;overflow-wrap:anywhere;word-break:break-word;min-width:0}
+.word-card-subline .pos{font-size:12px;color:var(--muted);font-weight:700}
+.word-card-subline .dot{color:#CBD5E1}
+.word-card-left .speak-btn{margin-top:10px;align-self:flex-start}
+.word-card-actions{display:flex;align-items:center;gap:8px;margin-top:16px;flex-wrap:wrap}
+.word-card-actions .btn{padding:6px 13px;font-size:12px;border-radius:999px}
+.word-card-actions .btn-soft{background:var(--purple);border-color:#DDD6FE;color:#5B21B6}
 .review-state-badge{display:inline-flex;align-items:center;padding:6px 12px;border-radius:999px;background:#F1F5F9;color:#475569;font-size:12px;font-weight:800;border:none;cursor:pointer}
+.review-state-new{background:#CCFBF1;color:var(--success);border:1px solid #99F6E4}
 .review-state-reviewing{background:#FEF3C7;color:#92400E}
 .review-state-learned{background:#DCFCE7;color:#166534}
-.word-card-more{margin-top:14px}
-.word-card-more summary{cursor:pointer;font-weight:800;color:#1E3A5F;padding:8px 0}
 .word-card>div:last-child{line-height:1.8}.word-card b{display:inline-block;margin-top:3px;margin-right:7px}.meaning-block{margin:10px 0 14px;padding:10px 12px;border-radius:9px;background:#F8FAFC}.meaning-block+.meaning-block{margin-top:14px}
-.level{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;font-size:14px;font-weight:900;text-align:center;flex-shrink:0}
-.l9{background:var(--green)}.l10{background:var(--sky)}.l11{background:var(--yellow)}.l12{background:var(--pink)}
 .word{font-weight:900;color:var(--navy);font-size:18px;min-width:0;overflow-wrap:anywhere;word-break:break-word}.pron-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:8px;min-width:0}.ipa{font-family:Georgia,"Times New Roman",serif;font-size:15px;color:#475569;font-weight:600;overflow-wrap:anywhere;word-break:break-word;min-width:0}.speak-btn{border:1px solid #B8C7D8;background:#EFF6FF;color:#173B63;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:900}.speak-btn:hover{background:#DBEAFE}.evaluation-strip{display:grid;grid-template-columns:150px 1fr;gap:12px;align-items:stretch;margin-top:14px}.evaluation-score{display:flex;align-items:center;justify-content:center;min-height:104px;border-radius:12px;background:#EDE9FE;border:1px solid #DDD6FE}.evaluation-notes{min-height:104px;border-radius:12px;background:#FFF7ED;border:1px solid #FED7AA;padding:12px 14px;line-height:1.75}.dialogue-line{padding:13px 15px!important;margin-bottom:11px!important;line-height:1.85}.dialogue-line .ko{margin-top:7px}
 .small{font-size:12px;color:var(--muted)}
 .example{background:#F8FAFC;border-left:4px solid #93C5FD;padding:9px 11px;margin-top:8px;border-radius:7px}
@@ -80,6 +87,7 @@ textarea{min-height:480px;resize:vertical;line-height:1.65}
 .grammar-sentence{font-size:17px;line-height:2;padding:13px 14px;background:#F8FAFC;border-radius:10px;margin-bottom:12px}
 .g-subject{background:#DBEAFE;border-bottom:2px solid #60A5FA;padding:1px 3px;border-radius:4px}.g-verb{color:#9F3A47;background:#FDECEF;border-bottom:2px solid #D9828E;padding:1px 3px;border-radius:4px;font-weight:850}.g-clause{background:#EDE9FE;border-bottom:2px solid #A78BFA;padding:1px 3px;border-radius:4px}.g-link{color:#8A3C47;background:#FCE7F3;padding:1px 4px;border-radius:4px;font-weight:800}.grammar-note{line-height:1.8;margin-top:10px}.important-note{color:#8A3C47;font-weight:800}.record-box{border:1px solid #C7D2FE;background:#F5F7FF;border-radius:13px;padding:15px;margin-top:16px}.record-controls{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.record-dot{color:#86CFA2;transition:color .18s ease}.record-start.is-recording .record-dot{color:#F19A9A}.score-badge{display:inline-flex;align-items:center;justify-content:center;min-width:104px;padding:10px 15px;border-radius:999px;background:#EDE9FE;color:#4C1D95;font-size:20px;font-weight:950}.score-scale{margin-top:12px;padding:12px 14px;border-radius:10px;background:#fff;line-height:1.8;color:#475569}.sat-warning{font-size:12px;color:#64748B;margin-top:8px}.translation-loading{padding:12px;background:#EFF6FF;border-radius:10px;color:#1E3A5F;margin-bottom:12px}
 .question{border:1px solid var(--line);border-radius:13px;padding:15px;margin-bottom:14px}
+.question.sat-retry-active{border-color:#FBBF24}
 .choice{display:block;padding:9px 10px;margin:7px 0;border:1px solid #D1D5DB;border-radius:9px}
 .choice:hover{background:#F8FAFC}.correct{background:#DCFCE7!important;border-color:#86EFAC}.wrong{background:#FEE2E2!important;border-color:#FCA5A5}
 .explanation{display:none;background:#F8FAFC;border-radius:9px;padding:10px;margin-top:10px;color:#475569}
@@ -2420,7 +2428,17 @@ async function analyze(){
  // shown — no padding with unrelated phraseBank entries, no forced minimum count.
  const phrases=findPhraseMatches(text,sents);
  const qcount=Number(document.getElementById("qcount").value);
- const questions=makeQuestions(text,sents,vocab,qcount);
+ // Milestone 5 Dev Task 3 — see docs/milestones/milestone-05/02-ARCHITECTURE.md §5.3. Guest and
+ // logged-in-but-no-history both naturally fall through to weakTypes=[], which
+ // biasForWeakTypes() already treats as its unbiased no-op path — no separate guest guard needed
+ // inside makeQuestions() itself. try/catch fails open (unbiased selection) rather than blocking
+ // analysis on a rare IndexedDB error.
+ let weakTypes=[];
+ if(auth.userId){
+  try{ weakTypes=computeWeakTypes(await idbGetAllByUser("satAttempts",auth.userId)); }
+  catch(e){ weakTypes=[]; }
+ }
+ const questions=makeQuestions(text,sents,vocab,qcount,weakTypes);
  // Milestone 3 Dev Task 3 — see docs/milestones/milestone-03/02-ARCHITECTURE.md §3a. state.analysis
  // is now assigned BEFORE translations resolve (translations start as 'loading' placeholders), so
  // render()/updateTranslationRow() can show per-sentence progress as each one completes — the
@@ -3316,14 +3334,47 @@ const QG_PRIORITY=["Central Idea","Inference","Command of Evidence","Purpose/Fun
 const QG_GENERATORS=[genCentralIdea,genInference,genPurposeFunction,genTextStructure,
  genCauseEffect,genComparisonContrast,genTransition,genDetailEvidence,
  genVocabInContext,genCommandOfEvidence,genAuthorsPurpose];
-function makeQuestions(text,sents,vocab,n){
+// Milestone 5 Dev Task 3 — see docs/milestones/milestone-05/02-ARCHITECTURE.md §5.1. Reuses the
+// report tab's own established "weak" convention (total>=3 matches buildDeterministicSummary()'s
+// minimum sample size, <0.6 matches typeRows'/skillRows' existing acc<60?"weak" CSS threshold) rather
+// than inventing new numbers. Excludes retry-kind attempts so a coached retry can't make a type look
+// less weak than the student's genuine unaided performance. Caps at 2 types, matching
+// buildDeterministicSummary()'s existing cap.
+function computeWeakTypes(attempts){
+ const typeStats={};
+ attempts.filter(a=>a.attemptKind!=="retry").forEach(a=>{
+  typeStats[a.questionType]=typeStats[a.questionType]||{correct:0,total:0};
+  typeStats[a.questionType].total++;
+  if(a.isCorrect)typeStats[a.questionType].correct++;
+ });
+ return Object.entries(typeStats)
+  .filter(([,v])=>v.total>=3 && (v.correct/v.total)<0.6)
+  .sort((a,b)=>(a[1].correct/a[1].total)-(b[1].correct/b[1].total))
+  .slice(0,2)
+  .map(([k])=>k);
+}
+// Guarantees, not replaces: weak-type questions are only preferentially included, up to a cap of
+// ~35% of n (CEO-approved range 30-40%), never all of it — the remaining majority always follows the
+// normal QG_PRIORITY selection. Fails open by construction: an empty weakTypes list (no history,
+// insufficient history, or a passage that doesn't support the weak type at all) falls straight
+// through to today's exact unbiased behavior, not a special-cased guard. Final re-sort preserves the
+// existing QG_PRIORITY display order regardless of which questions were preferentially included.
+function biasForWeakTypes(built,n,weakTypes){
+ if(!weakTypes||!weakTypes.length) return built.slice(0,Math.min(10,Math.max(0,n)));
+ const cap=Math.max(1,Math.ceil(n*0.35));
+ const weak=built.filter(q=>weakTypes.includes(q.type)).slice(0,cap);
+ const rest=built.filter(q=>!weak.includes(q));
+ const combined=[...weak,...rest].slice(0,Math.min(10,Math.max(0,n)));
+ return combined.sort((a,b)=>QG_PRIORITY.indexOf(a.type)-QG_PRIORITY.indexOf(b.type));
+}
+function makeQuestions(text,sents,vocab,n,weakTypes){
  const satSents=qgSplitSentences(text);
  const sig=qgSignals(satSents);
  const ctx={sents:satSents,vocab,sig,usedIdx:new Set(),usedWords:new Set()};
  const built=[];
  for(const gen of QG_GENERATORS){ const q=gen(ctx); if(q) built.push(q); }
  built.sort((a,b)=>QG_PRIORITY.indexOf(a.type)-QG_PRIORITY.indexOf(b.type));
- const capped=built.slice(0,Math.min(10,Math.max(0,n)));
+ const capped=biasForWeakTypes(built,n,weakTypes);
  return capped.map((q,i)=>{
    const pos=i%4;
    const arr=new Array(4);
@@ -3526,24 +3577,25 @@ function vocabCardTemplate(v){
  // gets no AI button, since there is nothing contextual to explain.
  const vocabContextAvailable=!!getDevApiKey("gemini")&&!!v.contextSentence;
  return `<div class="card word-card${v.curated?"":" word-card-fallback"}">
- <div class="word-card-above">
-  <div class="word-card-tags"><span class="level l${v.level}">${v.level}</span><span class="word-source-tag ${v.curated?"tag-curated":"tag-general"}">${v.curated?"사전 수록 단어":"일반 설명"}</span></div>
-  <div class="word">${v.word}</div>
-  <div class="pron-row"><span class="ipa">${getIPA(v.word)}</span><button class="speak-btn" onclick='speakAmerican(${JSON.stringify(v.word)})'>🔊 미국식 발음 듣기</button></div>
-  <div class="small" style="margin-top:4px">${v.data[0]}</div>
-  ${v.contextSentence?`<div class="meaning-block context-meaning"><b>문맥 속 의미</b><div style="margin-top:6px;line-height:1.7">${escapeHtml(v.contextSentence)}</div></div>`:""}
-  <div class="meaning-block"><b>한국어 뜻</b><div style="margin-top:9px;line-height:1.8">${v.data[2]}</div></div>
-  <div class="meaning-block"><b>English meaning</b><div style="margin-top:9px;line-height:1.8">${v.data[1]}</div></div>
+ <div class="word-card-left">
+  <div class="word-card-meta-row"><span class="level-chip">Lv.${v.level}</span><span class="word-source-tag ${v.curated?"tag-curated":"tag-general"}">${v.curated?"사전 수록 단어":"일반 설명"}</span></div>
+  <div class="word-card-word">${v.word}</div>
+  <div class="word-card-subline"><span class="ipa">${getIPA(v.word)}</span><span class="dot">·</span><span class="pos">${v.data[0]}</span></div>
+  <button class="speak-btn" onclick='speakAmerican(${JSON.stringify(v.word)})'>🔊 발음듣기</button>
   <div class="word-card-actions">
-   <button class="btn ${saved?"btn-primary":"btn-soft"}" onclick='toggleWordBookSave(${JSON.stringify(v.word)})'>${saved?"저장됨 ✓ (제거)":"단어장에 저장"}</button>
+   <button class="btn ${saved?"btn-primary":"btn-soft"}" onclick='toggleWordBookSave(${JSON.stringify(v.word)})'>${saved?"저장됨 ✓":"단어장에 저장"}</button>
    <button class="review-state-badge review-state-${reviewState}" onclick='cycleReviewState(${JSON.stringify(v.word)})' title="눌러서 학습 상태 변경">${REVIEW_STATE_LABELS[reviewState]}</button>
   </div>
  </div>
- <details class="word-card-more"><summary>더 보기 (동의어·반의어·예문)</summary>
+ <div class="word-card-right">
+  ${v.contextSentence?`<div class="meaning-block context-meaning"><b>문맥 속 의미</b><div style="margin-top:6px;line-height:1.7">${escapeHtml(v.contextSentence)}</div></div>`:""}
+  <div class="meaning-block"><b>English meaning</b><div style="margin-top:9px;line-height:1.8">${v.data[1]}</div></div>
+  <div class="meaning-block"><b>한국어 뜻</b><div style="margin-top:9px;line-height:1.8">${v.data[2]}</div></div>
   <div class="syn-ant"><div class="syn"><b>Synonyms · 동의어</b><div style="margin-top:7px">${v.data[5]||"문맥에 따라 확인"}</div></div><div class="ant"><b>Antonyms · 반의어</b><div style="margin-top:7px">${v.data[6]||"문맥에 따라 확인"}</div></div></div>
-  <div class="example"><div class="example-title">High-school academic example</div>${v.data[3]}<br><span class="ko">(${v.data[4]})</span></div>${dictionaryLinks(v.word)}
+  <div class="example"><div class="example-title">High-school academic example</div>${v.data[3]}<br><span class="ko">(${v.data[4]})</span></div>
   ${vocabContextAvailable?`<div style="margin-top:12px"><button class="btn btn-soft" onclick='loadVocabContext(${JSON.stringify(v.word)},${JSON.stringify(v.contextSentence)},${JSON.stringify(v.data[1])})'>AI: 왜 이 뜻일까요? (선택)</button></div><div id="vocabContext_${v.word}" style="margin-top:8px"></div>`:""}
- </details></div>`;
+  ${dictionaryLinks(v.word)}
+ </div></div>`;
 }
 function vocab(a){
  const list=state.vocabShowAll?a.vocab:a.vocab.filter(v=>v.curated);
@@ -4380,8 +4432,59 @@ function evaluatePronunciation(target){
  notes.innerHTML=parts.join("<br>");
  transcriptBox.textContent=result.audioOnly?`음성 지표: 발화 구간 ${Math.round((audioMetrics.voiced/Math.max(1,audioMetrics.frames))*100)}%, 읽기 속도 적합도 ${Math.round((result.paceFit||0)*100)}%`:`브라우저가 인식한 문장: ${speechTranscript}`;
 }
-function sat(a){return `<div class="card c-pink"><h3>SAT Practice · ${a.questions.length}문제</h3>중급~고급 수준의 중심 생각, 추론, 문장 기능, 근거, 어휘 문맥, 표현의 정확성 문제입니다.<div class="sat-warning">문제·선택지·해설은 영어로만 생성되도록 검증합니다.</div></div>${a.questions.map((q,i)=>`<div class="question" id="q${i}"><div class="small" style="font-weight:900;color:#6D4C7D;margin-bottom:7px">${q.type||"SAT Reading and Writing"}</div><b>${i+1}. ${q.q}</b>${q.choices.map((c,j)=>`<label class="choice"><input type="radio" name="q${i}" value="${j}"> ${String.fromCharCode(65+j)}. ${c}</label>`).join("")}<div class="explanation" id="exp${i}"><b>Explanation:</b> ${q.why}${q.whyKo?`<div class="ko" style="margin-top:6px">(${q.whyKo})</div>`:""}</div></div>`).join("")}<button class="btn btn-primary" onclick="gradeQuiz()">채점하기</button>`}
-function gradeQuiz(){let score=0;state.analysis.questions.forEach((q,i)=>{const picked=document.querySelector(`input[name=q${i}]:checked`);document.querySelectorAll(`#q${i} .choice`).forEach((el,j)=>{el.classList.remove("correct","wrong");if(j===q.ans)el.classList.add("correct");if(picked&&Number(picked.value)===j&&j!==q.ans)el.classList.add("wrong")});if(picked&&Number(picked.value)===q.ans)score++;document.getElementById(`exp${i}`).style.display="block"});toast(`점수: ${score} / ${state.analysis.questions.length}`);captureSatAttempt(score,state.analysis.questions.length);}
+function sat(a){return `<div class="card c-pink"><h3>SAT Practice · ${a.questions.length}문제</h3>중급~고급 수준의 중심 생각, 추론, 문장 기능, 근거, 어휘 문맥, 표현의 정확성 문제입니다.<div class="sat-warning">문제·선택지·해설은 영어로만 생성되도록 검증합니다.</div></div>${a.questions.map((q,i)=>`<div class="question" id="q${i}"><div class="small" style="font-weight:900;color:#6D4C7D;margin-bottom:7px">${q.type||"SAT Reading and Writing"}</div><b>${i+1}. ${q.q}</b>${q.choices.map((c,j)=>`<label class="choice"><input type="radio" name="q${i}" value="${j}"> ${String.fromCharCode(65+j)}. ${c}</label>`).join("")}<div class="explanation" id="exp${i}"><b>Explanation:</b> ${q.why}${q.whyKo?`<div class="ko" style="margin-top:6px">(${q.whyKo})</div>`:""}${q.evidenceSentence?`<div class="small" style="margin-top:8px;padding-top:8px;border-top:1px dashed #D1D5DB"><b>근거 문장:</b> ${escapeHtml(q.evidenceSentence)}</div>`:""}</div></div>`).join("")}<button class="btn btn-primary" id="satGradeBtn" onclick="gradeQuiz()">채점하기</button><button class="btn btn-soft" id="satRetryBtn" style="display:none;margin-left:8px" onclick="retryMissedQuestions()">틀린 문제 다시 풀기</button><button class="btn btn-primary" id="satGradeRetryBtn" style="display:none;margin-left:8px" onclick="gradeRetry()">다시 채점하기</button>`}
+function gradeQuiz(){let score=0;state.analysis.questions.forEach((q,i)=>{const picked=document.querySelector(`input[name=q${i}]:checked`);const selectedIdx=picked?Number(picked.value):null;document.querySelectorAll(`#q${i} .choice`).forEach((el,j)=>{el.classList.remove("correct","wrong");if(j===q.ans)el.classList.add("correct");if(picked&&Number(picked.value)===j&&j!==q.ans)el.classList.add("wrong")});const isCorrect=selectedIdx!==null&&selectedIdx===q.ans;if(isCorrect)score++;q._firstSelectedIdx=selectedIdx;q._firstCorrect=isCorrect;document.getElementById(`exp${i}`).style.display="block"});toast(`점수: ${score} / ${state.analysis.questions.length}`);captureSatAttempt(score,state.analysis.questions.length);maybeShowRetryButton(score,state.analysis.questions.length);}
+// Milestone 5 Dev Task 1 — see docs/milestones/milestone-05/02-ARCHITECTURE.md §3. Retry state is
+// runtime-only (stamped directly on state.analysis.questions[i] via _firstSelectedIdx/_firstCorrect/
+// _firstAttemptId), matching how the ungraded quiz itself already lives entirely in memory until an
+// explicit save. gradeRetry() unconditionally skips any question with _firstCorrect===true, so the
+// original attempt can never be altered by retry regardless of DOM state — disabling those
+// questions' radios below is a UX clarity measure, not the actual safeguard.
+function maybeShowRetryButton(score,total){
+ const retryBtn=document.getElementById("satRetryBtn");
+ if(!retryBtn) return;
+ retryBtn.style.display=score<total?"inline-block":"none";
+}
+function retryMissedQuestions(){
+ state.analysis.questions.forEach((q,i)=>{
+  const qEl=document.getElementById(`q${i}`);
+  if(!qEl) return;
+  if(q._firstCorrect){
+   qEl.querySelectorAll("input[type=radio]").forEach(inp=>inp.disabled=true);
+   return;
+  }
+  qEl.querySelectorAll(".choice").forEach(el=>{
+   el.classList.remove("correct","wrong");
+   const inp=el.querySelector("input"); if(inp){ inp.checked=false; inp.disabled=false; }
+  });
+  const expEl=document.getElementById(`exp${i}`); if(expEl) expEl.style.display="none";
+  qEl.classList.add("sat-retry-active");
+ });
+ document.getElementById("satRetryBtn").style.display="none";
+ document.getElementById("satGradeBtn").style.display="none";
+ document.getElementById("satGradeRetryBtn").style.display="inline-block";
+ toast("틀린 문제만 다시 풀어보세요.");
+}
+async function gradeRetry(){
+ let retryScore=0,retryTotal=0,originalCorrect=0;
+ state.analysis.questions.forEach((q,i)=>{
+  if(q._firstCorrect){ originalCorrect++; return; }
+  retryTotal++;
+  const picked=document.querySelector(`input[name=q${i}]:checked`);
+  document.querySelectorAll(`#q${i} .choice`).forEach((el,j)=>{
+   el.classList.remove("correct","wrong");
+   if(j===q.ans)el.classList.add("correct");
+   if(picked&&Number(picked.value)===j&&j!==q.ans)el.classList.add("wrong");
+  });
+  const isCorrect=!!(picked&&Number(picked.value)===q.ans);
+  if(isCorrect)retryScore++;
+  const expEl=document.getElementById(`exp${i}`); if(expEl) expEl.style.display="block";
+  const qEl=document.getElementById(`q${i}`); if(qEl) qEl.classList.remove("sat-retry-active");
+ });
+ toast(`원래 점수: ${originalCorrect} / ${state.analysis.questions.length} · 다시 풀기 결과: ${retryScore} / ${retryTotal}`);
+ await captureRetryAttempt(retryScore,retryTotal);
+ document.getElementById("satGradeRetryBtn").style.display="none";
+}
 
 // Milestone 3 Dev Task 5 — see docs/milestones/milestone-03/02-ARCHITECTURE.md §3c. Defensive read
 // helper (matches CODING_STANDARDS.md's "validate/handle localStorage reads defensively" rule and
@@ -4672,7 +4775,12 @@ async function captureSatAttempt(score,total){
    correctAnswer:q.choices?.[q.ans]??String(q.ans), isCorrect,
    explanation:q.why||"", evidenceSentence:q.evidenceSentence||"",
    skillTags:skillsForType(q.type||""), score:total?Math.round((score/total)*100):0,
+   attemptKind:"original",
   };
+  // Milestone 5 Dev Task 1 — runtime-only linkage so a later retry can record which original
+  // attempt it corresponds to (retryOfAttemptId); harmless no-op for guests, whose records are
+  // built here but never persisted below.
+  q._firstAttemptId=rec.attemptId;
   records.push(rec);
  });
  if(!userId){ return; } // guest mode: attempt not persisted (per #20A section 20/24)
@@ -4683,6 +4791,44 @@ async function captureSatAttempt(score,total){
    await idbPut("wrongAnswers",{id:uid("wrong"),userId,attemptId:rec.attemptId,date:rec.date,
     questionType:rec.questionType,questionText:rec.questionText,selectedAnswer:rec.selectedAnswer,
     correctAnswer:rec.correctAnswer,explanation:rec.explanation,evidenceSentence:rec.evidenceSentence,errorType});
+  }
+ }
+ if(state.active==="report") render();
+}
+// Milestone 5 Dev Task 1 — see docs/milestones/milestone-05/02-ARCHITECTURE.md §3.3. Mirrors
+// captureSatAttempt()'s shape exactly (same field set, same wrongAnswers branch) but only for
+// questions retried (_firstCorrect falsy) and tagged attemptKind:"retry" with retryOfAttemptId
+// linking back to the original question's attempt — additive fields only, no schema change. Original
+// satAttempts/wrongAnswers records from the first grade are never read or modified here.
+async function captureRetryAttempt(retryScore,retryTotal){
+ const a=state.analysis; if(!a) return;
+ const userId=auth.userId;
+ if(!userId) return; // guest mode: retry attempt not persisted, same as the original attempt
+ const quizId=uid("retryquiz");
+ const now=new Date();
+ const passageHash=await sha256Hex(a.text||"");
+ for(let i=0;i<a.questions.length;i++){
+  const q=a.questions[i];
+  if(q._firstCorrect) continue; // not part of the retry — original result stands untouched
+  const picked=document.querySelector(`input[name=q${i}]:checked`);
+  const selectedIdx=picked?Number(picked.value):null;
+  const isCorrect=selectedIdx!==null && selectedIdx===q.ans;
+  const rec={
+   attemptId:uid("att"), quizId, userId, date:now.toISOString(),
+   passageId:passageHash, passageTitle:a.title||"", questionType:q.type||"SAT Reading and Writing",
+   questionText:q.q||"", selectedAnswer:selectedIdx===null?null:(q.choices?.[selectedIdx]??String(selectedIdx)),
+   correctAnswer:q.choices?.[q.ans]??String(q.ans), isCorrect,
+   explanation:q.why||"", evidenceSentence:q.evidenceSentence||"",
+   skillTags:skillsForType(q.type||""), score:retryTotal?Math.round((retryScore/retryTotal)*100):0,
+   attemptKind:"retry", retryOfAttemptId:q._firstAttemptId||null,
+  };
+  await idbPut("satAttempts",rec);
+  if(!rec.isCorrect){
+   const errorType=classifyErrorType(rec);
+   await idbPut("wrongAnswers",{id:uid("wrong"),userId,attemptId:rec.attemptId,date:rec.date,
+    questionType:rec.questionType,questionText:rec.questionText,selectedAnswer:rec.selectedAnswer,
+    correctAnswer:rec.correctAnswer,explanation:rec.explanation,evidenceSentence:rec.evidenceSentence,errorType,
+    attemptKind:"retry"});
   }
  }
  if(state.active==="report") render();
@@ -4741,7 +4887,14 @@ function reportView(){
 async function renderReportAsync(){
  const root=document.getElementById("reportRoot");
  if(!root||!auth.userId) return;
- const [attempts,sessions]=await Promise.all([idbGetAllByUser("satAttempts",auth.userId),idbGetAllByUser("studySessions",auth.userId)]);
+ const [attemptsAll,sessions]=await Promise.all([idbGetAllByUser("satAttempts",auth.userId),idbGetAllByUser("studySessions",auth.userId)]);
+ // Milestone 5 Dev Task 4 — see docs/milestones/milestone-05/02-ARCHITECTURE.md §3.5. Excludes
+ // attemptKind:"retry" records from every aggregate stat below so a coached retry (answered right
+ // after seeing the correct answer/explanation) can't inflate accuracy/trend beyond genuine unaided
+ // performance. Absent on every pre-Milestone-5 record, so this is a no-op for existing data.
+ // wrongAnswers (queried separately below) is intentionally NOT filtered — a still-wrong retry is a
+ // genuine, currently-unresolved gap and belongs in "최근 오답".
+ const attempts=attemptsAll.filter(a=>a.attemptKind!=="retry");
  const total=attempts.length, correct=attempts.filter(a=>a.isCorrect).length, wrong=total-correct;
  const accuracy=total?Math.round((correct/total)*100):0;
  const lastDate=attempts.length?attempts.map(a=>a.date).sort().slice(-1)[0]:null;
@@ -4768,7 +4921,7 @@ async function renderReportAsync(){
  const wrongCards=recentWrong.map(w=>`<div class="card"><div class="small" style="font-weight:900;color:#6D4C7D;margin-bottom:6px">${escapeHtml(w.questionType)} · ${new Date(w.date).toLocaleDateString("ko-KR")}</div>
   <div style="margin-bottom:6px"><b>문제</b> ${escapeHtml(w.questionText)}</div>
   <div class="small">내 답: <span class="weak">${escapeHtml(String(w.selectedAnswer??"(무응답)"))}</span> · 정답: <span class="strong">${escapeHtml(String(w.correctAnswer))}</span></div>
-  <div class="example" style="margin-top:8px"><b>왜 틀렸는가:</b> ${escapeHtml(w.errorType)}<br><b>정답이 맞는 이유:</b> ${escapeHtml(w.explanation||"(설명 없음)")}<br><b>다음에 주의할 점:</b> ${escapeHtml(errorAdvice(w.errorType))}</div></div>`).join("")||`<div class="empty" style="height:120px">최근 오답이 없습니다.</div>`;
+  <div class="example" style="margin-top:8px"><b>왜 틀렸는가:</b> ${escapeHtml(w.errorType)}<br><b>정답이 맞는 이유:</b> ${escapeHtml(w.explanation||"(설명 없음)")}<br><b>다음에 주의할 점:</b> ${escapeHtml(errorAdvice(w.errorType))}${w.evidenceSentence?`<br><b>근거 문장:</b> ${escapeHtml(w.evidenceSentence)}`:""}</div></div>`).join("")||`<div class="empty" style="height:120px">최근 오답이 없습니다.</div>`;
 
  const savedCards=savedList.map(s=>`<div class="saved-item"><h4>${escapeHtml(s.title||"제목 없음")}</h4>
   <div class="saved-meta">${new Date(s.date).toLocaleDateString("ko-KR")} · ${escapeHtml(s.domain||"영역 미상")} · SAT 점수 ${s.satScore??"-"}</div>
