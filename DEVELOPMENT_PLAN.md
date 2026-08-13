@@ -235,6 +235,23 @@ approval remains the only remaining gate. One LOW item (unsave doesn't reset `re
 `BLOCKED_HUMAN_INPUT` item (real Gemini `vocab-context` live-key test) are both accepted/deferred,
 non-blocking.
 
+**Update (2026-08-13, merge + post-merge Vocabulary Card visual iteration, CEO decision to freeze):**
+`feature/vocab-experience-upgrade` was pushed and merged to `main` with CEO approval
+([`ohcha1/sat-study-2026#4`](https://github.com/ohcha1/sat-study-2026/pull/4), merge commit
+`23a180c`), followed by a documentation-only follow-up commit adding the previously-uncommitted
+`04-QA-REPORT.md` to `main` (commit `9fa6e1b`). After merge, the CEO requested several rounds of
+purely visual iteration on the Dictionary/Vocabulary Card — pastel accent colors, a 30:70 two-column
+layout experiment, manual pixel-position locking, a restoration of the original pre-Milestone-4 card
+layout (sourced from `LATEST_GOLD_MASTER_NEXT.html`), and finally a professional freeform redesign of
+the card's left-hand identity/action panel — all on a separate branch, `feature/dictionary-visual-polish`
+(5 commits, `9ad4b0f`..`4725fdf`), with the right-hand information panel and all Milestone 4
+functionality (Word Book, Review states, concurrency hot-fix, Gemini vocab-context, persistence)
+preserved and re-verified after every visual change. **CEO decision (2026-08-13): the Vocabulary Card
+UI is accepted for now and is now FROZEN** — not considered visually perfect, but no further cosmetic
+iteration is authorized in this milestone; only genuine functional defects should prompt further
+changes. `feature/dictionary-visual-polish` remains **not merged, not pushed** pending a separate
+CEO decision on whether/when to fold it into `main`.
+
 ## Milestone 4 — UI Improvements
 
 Goal: address usability gaps surfaced in the review, without changing underlying analysis logic.
