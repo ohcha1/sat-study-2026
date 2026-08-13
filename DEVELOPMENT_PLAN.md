@@ -264,6 +264,53 @@ Goal: address usability gaps surfaced in the review, without changing underlying
 
 Exit criteria: usability issues from the review are resolved; no analysis/feature logic changes.
 
+## Milestone "5" numbering note (Practice Loop Closure track)
+
+A second, unrelated body of work also uses the label "Milestone 5": **Practice Loop Closure: Retry &
+Reinforcement**, tracked under `docs/milestones/milestone-05/` on branch
+`feature/practice-loop-closure` (forked from `main` post-Milestone-4-merge, not from this document's
+numbered sequence — same pattern as the Gold Master Adoption track's relationship to this document's
+"Milestone 3" and the Vocabulary Experience Upgrade track's relationship to "Milestone 4"). Per the
+CEO's explicit scoping in `docs/milestones/milestone-05/01-PM-SPEC.md` §8, this is a smaller,
+AI-independent milestone that closes the one missing link in the student study loop (retry +
+evidence sentence + lightweight weak-area reinforcement, all local/offline) — it is deliberately
+**not** the "Milestone 5 — AI Tutor" work described immediately below, which remains a separate,
+larger, AI-dependent undertaking not superseded by this track. See the dedicated entry immediately
+below this note for the Practice Loop Closure track's status.
+
+## Milestone 5 (Practice Loop Closure track) — Practice Loop Closure: Retry & Reinforcement — ✅ Development/QA/Review Complete, pending CEO push approval
+
+Goal: close the one missing link in the student study loop (passage → analysis → vocabulary → SAT
+questions → answer → explanation → wrong-answer review → **repeat practice**) — every other stage
+already existed; repeat practice did not. Full document set:
+`docs/milestones/milestone-05/{01-PM-SPEC,02-ARCHITECTURE,03-IMPLEMENTATION-LOG,04-QA-REPORT,05-REVIEW-REPORT,06-RELEASE-NOTES}.md`.
+
+- **Branch:** `feature/practice-loop-closure`, forked from `main` post-Milestone-4 merge.
+- [x] **Retry missed questions** ("틀린 문제 다시 풀기"): only wrong questions reset and re-grade;
+  correct questions locked at the data layer, not just the UI (Dev Task 1).
+- [x] **Evidence sentence** ("근거 문장"): surfaced in both the live quiz explanation and the
+  wrong-answer report — data that was already captured but never displayed (Dev Task 2).
+- [x] **Weak-area reinforcement**: future quizzes lightly bias toward a student's weakest question
+  type(s) (≥3 attempts, <60% accuracy), capped at 35% of a quiz, fails open with no history/guest
+  (Dev Task 3).
+- [x] **Report statistics**: retry attempts excluded from aggregate accuracy/trend so a coached retry
+  can't distort genuine unaided-performance stats; still-wrong retries remain reviewable (Dev Task 4).
+- [x] **Vocabulary UI integration**: the CEO-accepted-for-now Vocabulary Card state (from
+  `feature/dictionary-visual-polish` @ `4725fdf`) was carried into this branch, since it was never
+  merged to `main` — restored as one narrowly-scoped integration commit, confirmed byte-identical to
+  the reference, not the branch's full iteration history.
+- **Preserved unmodified:** all 11 SAT question generators, scoring/randomization, Word Book/Review
+  state, Gemini Summary, Gemini vocab-context, translation architecture, PDF/photo import, IndexedDB
+  schema (still exactly 6 object stores), all responsive/mobile behavior.
+
+Exit criteria: met — see `docs/milestones/milestone-05/03-IMPLEMENTATION-LOG.md` for full
+verification detail per Dev Task, and `04-QA-REPORT.md`/`05-REVIEW-REPORT.md` for independent
+verification (QA: PASS, no findings; Principal Review: APPROVE, no findings).
+
+**Release status:** Development, QA, and Principal Review are complete on
+`feature/practice-loop-closure`, not yet pushed, merged, or released — CEO push approval is the only
+remaining gate. No AI/provider dependency, no IndexedDB schema change.
+
 ## Milestone 5 — AI Tutor
 
 Goal: replace the templated, hardcoded "analysis" (grammar insights, SAT question generation) with genuine AI-generated content, addressing the gap between the README's "AI Explanation" claim and current template-based logic.
