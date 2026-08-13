@@ -4853,14 +4853,33 @@ function errorAdvice(errorType){
 // single read-merge-write entry point for every writer (the passive "seen" tracker below, the
 // explicit Word Book save toggle, and the Task 6 review-state change), so no writer can blind-
 // overwrite fields another writer already set.
+//
+// Hot-fix (Principal Review MEDIUM finding, docs/milestones/milestone-04/05-REVIEW-REPORT.md §4):
+// two callers targeting the SAME word (e.g. a save toggle and a review-state cycle firing close
+// together) could both read the record before either wrote it back, so one write silently lost the
+// other's field. vocabProgressQueue chains every call for a given word onto the previous one via
+// promise chaining, so a word's read-modify-write never overlaps with another mutation of that same
+// word; different words get independent chains and never block each other. A rejected link is
+// caught before being stored back into the queue so a failed mutation can't permanently wedge later
+// mutations for that word, while the original caller still sees the real rejection via `run`.
+let vocabProgressQueue={};
+function withVocabProgressLock(word,fn){
+ const prev=vocabProgressQueue[word]||Promise.resolve();
+ const run=prev.catch(()=>{}).then(fn);
+ vocabProgressQueue[word]=run.catch(()=>{});
+ return run;
+}
 async function updateVocabProgress(word,patch){
  if(!auth.userId) return null;
- const id=auth.userId+"_"+word;
- const existing=await idbGet("vocabularyProgress",id)||{};
- const record={...existing,id,userId:auth.userId,word,...patch};
- await idbPut("vocabularyProgress",record);
- vocabProgressCache[word]=record;
- return record;
+ return withVocabProgressLock(word,async()=>{
+  const id=auth.userId+"_"+word;
+  const existing=await idbGet("vocabularyProgress",id)||{};
+  const patchObj=typeof patch==="function"?patch(existing):patch;
+  const record={...existing,id,userId:auth.userId,word,...patchObj};
+  await idbPut("vocabularyProgress",record);
+  vocabProgressCache[word]=record;
+  return record;
+ });
 }
 // In-memory cache of the current user's vocabularyProgress rows, keyed by word, so vocab(a) (a
 // synchronous render function) can show saved/review state without making every render async — a
@@ -4880,8 +4899,14 @@ async function ensureVocabProgressLoaded(){
 // is ever saved. Matches this file's existing inline-handler convention (onclick="analyze()" etc.).
 async function toggleWordBookSave(word){
  if(!auth.userId){ toast("단어장에 저장하려면 로그인이 필요합니다."); return; }
- const nowSaved=!(vocabProgressCache[word]&&vocabProgressCache[word].savedToWordBook);
- await updateVocabProgress(word,{savedToWordBook:nowSaved,savedAt:nowSaved?new Date().toISOString():null});
+ let nowSaved;
+ // Hot-fix: decide save/unsave from the record as read INSIDE the per-word lock (not the outer
+ // vocabProgressCache, which may be stale if another mutation for this word is still in flight),
+ // so back-to-back toggles can never both compute the same "next" state from the same stale read.
+ await updateVocabProgress(word,existing=>{
+  nowSaved=!(existing&&existing.savedToWordBook);
+  return{savedToWordBook:nowSaved,savedAt:nowSaved?new Date().toISOString():null};
+ });
  toast(nowSaved?"단어장에 저장했습니다.":"단어장에서 제거했습니다.");
  render();
 }
@@ -4894,9 +4919,14 @@ const REVIEW_STATE_ORDER=["new","reviewing","learned"];
 const REVIEW_STATE_LABELS={new:"새 단어",reviewing:"복습 중",learned:"학습 완료"};
 async function cycleReviewState(word){
  if(!auth.userId){ toast("학습 상태를 저장하려면 로그인이 필요합니다."); return; }
- const current=(vocabProgressCache[word]&&vocabProgressCache[word].reviewState)||"new";
- const next=REVIEW_STATE_ORDER[(REVIEW_STATE_ORDER.indexOf(current)+1)%REVIEW_STATE_ORDER.length];
- await updateVocabProgress(word,{reviewState:next,reviewedAt:new Date().toISOString()});
+ let next;
+ // Hot-fix: same reasoning as toggleWordBookSave() above — read "current" from the record inside
+ // the per-word lock so rapid repeated cycles each advance from the previous cycle's real result.
+ await updateVocabProgress(word,existing=>{
+  const current=(existing&&existing.reviewState)||"new";
+  next=REVIEW_STATE_ORDER[(REVIEW_STATE_ORDER.indexOf(current)+1)%REVIEW_STATE_ORDER.length];
+  return{reviewState:next,reviewedAt:new Date().toISOString()};
+ });
  toast(`학습 상태: ${REVIEW_STATE_LABELS[next]}`);
  render();
 }
