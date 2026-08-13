@@ -1,17 +1,86 @@
 # Multi-AI V2 — Post-Merge Production Baseline
 
 Recorded by the Release Manager immediately after PR #1 merged into `main`, updated after PR #2
-(Risk C fix), and updated again after PR #3 (Gemini Summary UI). This document is the official
-record of what `main` contains; superseded sections are updated in place with the new fact and the
-prior value preserved inline as history, per `.ai-company/WORKFLOW.md`'s append-not-hide rule,
-rather than silently deleted.
+(Risk C fix), updated again after PR #3 (Gemini Summary UI), and updated again after PR #5
+(Milestone 5 — Practice Loop Closure, which also carried the Vocabulary UI integration onto `main`).
+This document is the official record of what `main` contains; superseded sections are updated in
+place with the new fact and the prior value preserved inline as history, per
+`.ai-company/WORKFLOW.md`'s append-not-hide rule, rather than silently deleted.
 
-## Current official baseline (updated after PR #3)
+## Current official baseline (updated after PR #5)
+
+- **`main` HEAD (merge commit):** `3b5f57dce1dde2270aa0fb07ef778b7b9eb8ecf4` (merge of PR #5,
+  "SAT Studio — Practice Loop Closure: Retry & Reinforcement," reviewed head
+  `d3109c9a7a5b92f44e05863ce4c84b162c16b1e6` confirmed contained in the merge).
+- **`index.html` SHA-256 (current, as of PR #5):**
+  `4c998ef1df47d17405e586f448aa291924668d58a9932e61e8f666bb62900d44`
+- **`LATEST_GOLD_MASTER_NEXT.html` SHA-256:** unchanged —
+  `a51c603348b9b6b507787db4807dd3d0e54ac22ee42407d4afc2070d963162ba` (reconfirmed identical to every
+  prior recording of this checksum; this file has never been modified since it was first committed).
+- **Feature branch:** `feature/practice-loop-closure` (preserved on `origin`, not deleted), 10
+  commits (an earlier packaging report in this session miscounted this as 12 — corrected here).
+- **Source PR:** [`ohcha1/sat-study-2026#5`](https://github.com/ohcha1/sat-study-2026/pull/5) —
+  merged via a normal (non-squash, non-rebase) merge commit.
+- **Note on sequencing:** PR #4 ("Dictionary/Vocabulary Experience Upgrade," Milestone 4) merged
+  into `main` before PR #5 but was not separately recorded in this document at the time — its content
+  is included in the verification below since it's part of the current baseline regardless.
+
+### Milestone 5 — Practice Loop Closure: Retry & Reinforcement (new in PR #5)
+
+- **Status: MERGED / COMPLETE.**
+- Closes the one previously-missing link in the student study loop (repeat practice after a wrong
+  answer) via three additive, AI-independent pieces, plus a report-statistics safeguard:
+  - **Retry missed questions** ("틀린 문제 다시 풀기") — only wrong questions reset and re-grade;
+    originally-correct questions are protected at the data layer (`gradeRetry()` unconditionally
+    skips any question already marked correct, independent of DOM state), not merely the UI.
+  - **Evidence sentence** ("근거 문장") — surfaced in both the live quiz explanation and the
+    wrong-answer report; `escapeHtml()`-protected at both render sites (this field is not escaped
+    upstream in `makeQuestions()`, so this protection is load-bearing, not redundant).
+  - **Weak-area reinforcement** — future quizzes lightly bias toward a student's weakest question
+    type(s) (≥3 attempts, <60% accuracy, reusing the report tab's existing thresholds), capped at
+    35% of a quiz; fails open with no history, insufficient history, guest sessions, or an
+    unsupported type.
+  - **Report-statistics filter** — retry attempts are excluded from aggregate accuracy/trend so a
+    coached retry can't distort genuine unaided-performance history; still-wrong retries remain
+    visible in the wrong-answer review list; pre-Milestone-5 records are unaffected (the new
+    `attemptKind` field is simply absent on them).
+- **Vocabulary UI now officially part of `main`:** the CEO-accepted-for-now Vocabulary Card state
+  (from `feature/dictionary-visual-polish` @ `4725fdf`, which was never separately merged) was
+  integrated into the Milestone 5 branch as one narrowly-scoped commit and rode along with this
+  merge. `vocabCardTemplate()` on `main` is confirmed byte-identical to the `4725fdf` reference. Word
+  Book, Review-state cycling, pronunciation, and the per-word concurrency hot-fix are all preserved.
+- **No new AI provider, no IndexedDB schema change** — confirmed via direct diff (zero
+  `createObjectStore`/`createIndex` lines in the PR's diff against its base) and via the schema still
+  reporting exactly 6 object stores at every checkpoint.
+- **Verification composition:** 11/11 PM-Spec acceptance criteria PASS; 20/20 CEO-required tests
+  PASS; independent QA PASS with zero findings at any severity (including an adversarial
+  DOM-manipulation test on the retry safeguard and an independently-chosen XSS payload); Principal
+  Review verdict APPROVE with zero findings, based on direct re-inspection of the actual code rather
+  than re-trusting prior reports.
+
+### Verification performed at baseline-recording time (PR #5)
+
+- `origin/main` HEAD confirmed `3b5f57dce1dde2270aa0fb07ef778b7b9eb8ecf4` via `git fetch`+
+  `git rev-parse`.
+- Reviewed head `d3109c9a7a5b92f44e05863ce4c84b162c16b1e6` confirmed an ancestor of the merge via
+  `git merge-base --is-ancestor`.
+- Vocabulary UI present on `main`: `word-card-left`/`word-card-right`/`level-chip`/
+  `vocabCardTemplate` all found directly in `origin/main`'s `index.html`.
+- Milestone 5 functions present on `main`: `gradeRetry`/`retryMissedQuestions`/
+  `captureRetryAttempt`/`computeWeakTypes`/`biasForWeakTypes` all found directly in `origin/main`'s
+  `index.html`.
+- `LATEST_GOLD_MASTER_NEXT.html` SHA-256 read directly from `origin/main`, confirmed identical to
+  every prior recording.
+- IndexedDB schema: exactly 6 `createObjectStore` calls found in `origin/main`'s `index.html`,
+  matching the schema's full historical count — no new store added.
+- No API key or credential literal found anywhere in `origin/main`'s `index.html` by pattern search.
+
+## Previous baseline (PR #3, preserved for history)
 
 - **`main` HEAD (merge commit):** `12da7b4b6fc6d3d5e46fa188ced5a20e9af6e5d6` (merge of PR #3, "Add
   optional Gemini AI summary to SAT Studio," parents `cdd02dc698f504eb25f84d527353d6ed246d85ab` +
   `8ec8921c944fbe334f631945901621a43b275752`).
-- **`index.html` SHA-256 (current, as of PR #3):**
+- **`index.html` SHA-256 (as merged into `main` at that point, since superseded above):**
   `7ab6e51243baf5151966d5b641c6cac711fb78dd800768f1d5cf7e9d929076ba`
 - **`LATEST_GOLD_MASTER_NEXT.html` SHA-256:** unchanged —
   `a51c603348b9b6b507787db4807dd3d0e54ac22ee42407d4afc2070d963162ba` (reconfirmed identical to every
@@ -93,6 +162,11 @@ rather than silently deleted.
 **Multi-AI V2 stabilization: COMPLETE** — all three risks identified during Milestone 3 QA are now
 resolved; no known open defect remains against this baseline.
 
+**Milestone 5 — Practice Loop Closure integration: COMPLETE** — see "Milestone 5 — Practice Loop
+Closure: Retry & Reinforcement (new in PR #5)" above for full detail. Includes the Vocabulary UI
+integration (Word Book/Review/pronunciation/concurrency hot-fix all preserved and confirmed on
+`main`). No known open defect; QA and Principal Review both returned zero findings at any severity.
+
 **Gemini Summary UI integration: COMPLETE** — see "Gemini Summary UI (new in PR #3)" above for full
 detail.
 
@@ -125,4 +199,7 @@ detail.
 ## Full history
 
 For the complete PM-Spec, Architecture, Implementation Log, QA Report, Review Report, and Release
-Notes behind this baseline, see `docs/milestones/milestone-03/`.
+Notes behind the current baseline (PR #5, Milestone 5 — Practice Loop Closure), see
+`docs/milestones/milestone-05/`. For the Multi-AI V2 stabilization baseline (PR #1-#3), see
+`docs/milestones/milestone-03/`. For the Vocabulary/Dictionary Experience Upgrade (PR #4, Milestone
+4), see `docs/milestones/milestone-04/`.

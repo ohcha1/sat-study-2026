@@ -278,7 +278,7 @@ evidence sentence + lightweight weak-area reinforcement, all local/offline) — 
 larger, AI-dependent undertaking not superseded by this track. See the dedicated entry immediately
 below this note for the Practice Loop Closure track's status.
 
-## Milestone 5 (Practice Loop Closure track) — Practice Loop Closure: Retry & Reinforcement — ✅ Development/QA/Review Complete, pending CEO push approval
+## Milestone 5 (Practice Loop Closure track) — Practice Loop Closure: Retry & Reinforcement — ✅ MERGED to main (2026-08-13)
 
 Goal: close the one missing link in the student study loop (passage → analysis → vocabulary → SAT
 questions → answer → explanation → wrong-answer review → **repeat practice**) — every other stage
@@ -310,6 +310,16 @@ verification (QA: PASS, no findings; Principal Review: APPROVE, no findings).
 **Release status:** Development, QA, and Principal Review are complete on
 `feature/practice-loop-closure`, not yet pushed, merged, or released — CEO push approval is the only
 remaining gate. No AI/provider dependency, no IndexedDB schema change.
+
+**Update (2026-08-13, merged):** CEO-approved push and draft PR
+([`ohcha1/sat-study-2026#5`](https://github.com/ohcha1/sat-study-2026/pull/5)) were completed, the
+PR passed a final independent diff review and was marked Ready for Review, and CEO-authorized merge
+(normal merge commit, no squash/rebase) landed it on `main` at `3b5f57dce1dde2270aa0fb07ef778b7b9eb8ecf4`
+(reviewed head `d3109c9` confirmed contained). This merge also carried the Vocabulary UI
+integration (§ above) onto `main` for the first time, since `feature/dictionary-visual-polish`
+itself was never separately merged. `feature/practice-loop-closure` (10 commits — an earlier
+packaging report in this session miscounted this as 12, corrected here) is preserved on `origin`,
+not deleted. Full baseline detail: `docs/BASELINE_MULTI_AI_V2.md`.
 
 ## Milestone 5 — AI Tutor
 
