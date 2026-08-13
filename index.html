@@ -1799,23 +1799,47 @@ const broadVocabLexicon={
 // fallbackExamplePool (which always framed the target word as a discussed/quoted term, e.g.
 // "the class used the term '{word}'..." — the exact pattern identified as the root cause of
 // words losing their natural grammatical function on the Example tab). Each POS gets 3 frames
-// that use the word in its real grammatical role; unknown POS routes to the noun family
-// (see guessPOS()) rather than a new meta-discussion frame. See 02-ARCHITECTURE.md §6.
+// that use the word in its real grammatical role. See 02-ARCHITECTURE.md §6.
+//
+// Hot-fix (QA F-2, 04-QA-REPORT.md) — the original `verb` family assumed every verb could safely
+// take a that-clause ("seemed to {word} that...") or an "on" complement ("continued to {word} on...").
+// Both are false for many common verbs (perpetuate/that-, codify/on-). A first revision tried generic
+// *noun* objects ("the claim"/"the process"/"the situation"), but re-testing showed those still invent
+// a false-feeling collocation for many verbs (e.g. "argue the process", "allocate the claim"). Settled
+// on a bare pronoun object ("it") instead: the only object that carries no semantic content of its own,
+// so it cannot mismatch a verb's real selectional preferences the way a concrete noun can — the
+// remaining, minimal assumption is ordinary transitive use, which holds for the overwhelming majority
+// of academic-register fallback verbs (documented residual limitation: still imperfect for the minority
+// of intransitive-only verbs, since no single frame is grammatical for 100% of English verb
+// subcategorizations without
+// per-word data this milestone is explicitly not authorized to invent).
+//
+// Hot-fix (QA adverb follow-up) — the original single `adverb` family put every -ly word, including
+// manner adverbs like "meticulously"/"cautiously", into a sentence-initial connective slot that only
+// suits a small, closed class of stance/connective adverbs (consequently, nevertheless, ...). Split
+// into `adverbConnective` (that slot, plus a semicolon-linked connective frame matching this app's own
+// curated consequently/nevertheless examples) and `adverbManner` (pre/post-verbal manner-modifying
+// slots, the natural habitat of manner adverbs). Selection is via isConnectiveAdverb() below.
 const fallbackFrameFamilies={
  verb:[
-  ["Students used the reading to {word} their argument more clearly.","학생들은 자신의 주장을 더 명확하게 “{word}”하기 위해 지문을 활용했다."],
-  ["The evidence seemed to {word} that the original explanation was incomplete.","그 증거는 기존 설명이 불완전하다는 것을 “{word}”하는 것처럼 보였다."],
-  ["The team continued to {word} on the same approach throughout the project.","그 팀은 프로젝트 내내 같은 방식으로 “{word}”하는 것을 계속했다."]
+  ["Over the course of the project, several factors combined to {word} it.","프로젝트가 진행되는 동안 여러 요인이 결합되어 그것을 “{word}”했다."],
+  ["Analysts noted that the new policy appeared to {word} it significantly.","분석가들은 새 정책이 그것을 상당히 “{word}”하는 것처럼 보인다고 언급했다."],
+  ["The report explained how the team planned to {word} it before the deadline.","그 보고서는 팀이 마감 전에 그것을 어떻게 “{word}”할 계획이었는지 설명했다."]
  ],
  adjective:[
-  ["The committee proposed a {word} solution to the ongoing problem.","위원회는 계속되는 문제에 대해 “{word}”한 해결책을 제안했다."],
+  ["The committee proposed {a} {word} solution to the ongoing problem.","위원회는 계속되는 문제에 대해 “{word}”한 해결책을 제안했다."],
   ["The results seemed {word} once researchers reviewed the complete data.","연구자들이 전체 자료를 검토하자 그 결과는 “{word}”해 보였다."],
   ["The findings were {word} in ways the researchers had not expected.","그 결과는 연구자들이 예상하지 못한 방식으로 “{word}”했다."]
  ],
- adverb:[
-  ["Costs {word} increased throughout the following year.","비용은 그 다음 해 내내 “{word}” 증가했다."],
+ adverbConnective:[
   ["{Word}, the results supported the original hypothesis.","“{word}”, 그 결과는 원래의 가설을 뒷받침했다."],
-  ["The two approaches were {word} similar in their overall structure.","두 접근 방식은 전체적인 구조 면에서 “{word}” 비슷했다."]
+  ["The initial data were incomplete; {word}, the committee delayed its final decision.","초기 자료가 불완전했고, “{word}” 위원회는 최종 결정을 미뤘다."],
+  ["The report was persuasive; {word}, several reviewers remained unconvinced.","그 보고서는 설득력이 있었지만, “{word}” 일부 검토자들은 여전히 확신하지 못했다."]
+ ],
+ adverbManner:[
+  ["Costs {word} increased throughout the following year.","비용은 그 다음 해 내내 “{word}” 증가했다."],
+  ["Researchers {word} reviewed the data before publishing their findings.","연구자들은 결과를 발표하기 전에 “{word}” 자료를 검토했다."],
+  ["The team completed the analysis {word}, according to the report.","보고서에 따르면 그 팀은 “{word}” 분석을 완료했다."]
  ],
  noun:[
   ["The {word} became a central topic of discussion among researchers.","그 “{word}”는 연구자들 사이에서 핵심적인 논의 주제가 되었다."],
@@ -1823,6 +1847,11 @@ const fallbackFrameFamilies={
   ["The report provided a detailed analysis of the {word}.","그 보고서는 “{word}”에 대한 상세한 분석을 제공했다."]
  ]
 };
+// Hot-fix (QA adverb follow-up) — a genuinely small, closed English grammatical class (connective/
+// stance adverbs), not a wordlist authored for any specific test. Anything ending in -ly that isn't in
+// this set is treated as a manner adverb (the far larger, productively-formed -ly category).
+const CONNECTIVE_ADVERBS=new Set(["consequently","however","nevertheless","nonetheless","moreover","furthermore","therefore","thus","hence","subsequently","additionally","similarly","conversely","meanwhile","accordingly","ultimately","essentially","undoubtedly","admittedly","arguably","surprisingly","notably","significantly","importantly","interestingly","remarkably","evidently","apparently","presumably","obviously","clearly","indeed","likewise","regardless","instead","otherwise","alternatively"]);
+function isConnectiveAdverb(w){ return CONNECTIVE_ADVERBS.has(w); }
 let mediaRecorder=null, recordedChunks=[], recordedUrl=null, speechTranscript="", speechRecognition=null, recordingStartedAt=0, recordingDuration=0, audioContext=null, analyser=null, metricTimer=null, audioMetrics={frames:0,voiced:0,sumRms:0,sumSqRms:0,peak:0};
 // Milestone 4 Dev Task 4 — vocabShowAll is display-only state for the Vocabulary tab's Important/
 // Show-all toggle (see docs/milestones/milestone-04/02-ARCHITECTURE.md §3.2). It never mutates
@@ -2399,25 +2428,80 @@ function findContextSentence(word,passageText){
 // re-encountering it. Not a regression: the original per-run variation was incidental, not a
 // documented or tested behavior.
 // Milestone 6 Task 2 — conservative local POS guesser for genuinely-uncurated words only.
-// Priority order is fixed (adverb > verb > adjective > noun-suffix > default-noun); never called
-// for words with a reliable curated or morphology-base POS (see buildVocabCardData).
-function guessPOS(w){
+// Hot-fix (QA F-1, 04-QA-REPORT.md) — this used to be the ONLY tier, defaulting silently to "noun"
+// whenever a word's suffix matched nothing, which reproduced the exact original bug (a verb/adjective
+// framed as a bare noun) for ordinary words like "circumvent"/"prevent"/"vague"/"harsh" that simply
+// don't end in one of the recognized suffixes. Renamed to suffixPOS() and demoted to tier 4 of a
+// 5-tier chain (tiers 1/3 — exact curated match, safe morphology base — already run upstream in
+// buildVocabCardData() before this is ever reached):
+//   2. lexicalPOSLookup()  — reuse of already-curated data (see below)
+//   4. suffixPOS()         — high-confidence suffix inference (unchanged rule table)
+//   5. "unknown"           — explicit, honest "we don't know" state; never silently becomes "noun"
+function suffixPOS(w){
  if(/ly$/.test(w)) return "adverb";
  if(/(ate|ify|ize|ise|en)$/.test(w)) return "verb";
  if(/(ive|ous|able|ible|al|ic|ful|less|ary)$/.test(w)) return "adjective";
  if(/(tion|sion|ment|ness|ity|ance|ence|ism|hood|ship|er|or)$/.test(w)) return "noun";
- return "noun";
+ return null;
 }
+// Hot-fix (QA F-1) — tier 2. Every curated entry's synonym/antonym fields (data[5]/data[6]) already
+// name other real English words related to it; if a genuinely-uncurated word shows up in those fields
+// for one or more entries that themselves have an unambiguous single POS, that's real evidence of the
+// word's own POS, reused directly from lexical data the app already has -- not a new wordlist authored
+// for this fix. Built once, lazily, and memoized (1,115 entries, negligible cost).
+let _lexicalPOSIndex=null;
+function buildLexicalPOSIndexOnce(){
+ if(_lexicalPOSIndex) return _lexicalPOSIndex;
+ const votes={};
+ for(const lex of [dictionary,supplementalVocab,broadVocabLexicon]){
+  for(const key in lex){
+   const entry=lex[key], pos=entry[0];
+   if(pos!=="noun"&&pos!=="verb"&&pos!=="adjective"&&pos!=="adverb") continue;
+   for(const raw of [...(entry[5]||"").split(","),...(entry[6]||"").split(",")]){
+    const w=raw.trim().toLowerCase();
+    if(!w||w==="—"||/\s/.test(w)) continue;
+    votes[w]=votes[w]||{};
+    votes[w][pos]=(votes[w][pos]||0)+1;
+   }
+  }
+ }
+ const resolved={};
+ for(const w in votes){
+  const ranked=Object.entries(votes[w]).sort((a,b)=>b[1]-a[1]);
+  if(ranked.length===1||ranked[0][1]>ranked[1][1]) resolved[w]=ranked[0][0];
+ }
+ return (_lexicalPOSIndex=resolved);
+}
+function lexicalPOSLookup(w){ return buildLexicalPOSIndexOnce()[w]||null; }
+function resolveFallbackPOS(w){ return lexicalPOSLookup(w)||suffixPOS(w)||"unknown"; }
 function renderFallbackFrame(tpl,w){
  const capitalized=w.charAt(0).toUpperCase()+w.slice(1);
- return tpl.replaceAll("{Word}",capitalized).replaceAll("{word}",w);
+ // Hot-fix (incidental, found live-testing the F-1/F-2 changes) — the adjective frame's hardcoded
+ // "a {word}" produced "a unnecessary solution" for any vowel-initial fallback adjective. {a}
+ // substitutes a simple, standard a/an heuristic (vowel-letter check); not a full phonetic system,
+ // but correct for the overwhelming majority of real English words, consistent with this milestone's
+ // "no large new lexical system" scope discipline.
+ const article=/^[aeiou]/i.test(w)?"an":"a";
+ return tpl.replaceAll("{Word}",capitalized).replaceAll("{a}",article).replaceAll("{word}",w);
 }
 function buildFallbackVocabData(w){
- const pos=guessPOS(w);
- const family=fallbackFrameFamilies[pos]||fallbackFrameFamilies.noun;
+ const pos=resolveFallbackPOS(w);
+ const meaning="a word selected from the passage; use the linked learner dictionaries to confirm its exact sense in context";
+ const synonyms="see dictionary links for exact synonyms", antonyms="an exact antonym may not exist; check the sense in context";
+ if(pos==="unknown"){
+  // Hot-fix (QA F-1 / unknown-POS strategy) — genuinely honest fallback: no grammatical role is
+  // claimed (unlike the old silent noun default), and it is not the banned meta-discussion pattern
+  // ("the class used the term...") either -- it's a direct, transparent study instruction, not a fake
+  // usage narrative. Per CEO instruction: better to clearly limit the fallback than teach wrong English.
+  const enTpl="This word ({word}) appears in the passage. Check a learner dictionary to confirm its exact part of speech and meaning before using it in a sentence of your own.";
+  const koTpl="이 단어({word})는 지문에 나온 단어입니다. 정확한 품사와 뜻은 학습 사전에서 확인한 뒤 문장에 사용하세요.";
+  return [pos,meaning,fallbackKoreanGloss(w),renderFallbackFrame(enTpl,w),renderFallbackFrame(koTpl,w),synonyms,antonyms];
+ }
+ const familyKey=pos==="adverb"?(isConnectiveAdverb(w)?"adverbConnective":"adverbManner"):pos;
+ const family=fallbackFrameFamilies[familyKey];
  const idx=[...w].reduce((h,c)=>h+c.charCodeAt(0),0)%family.length;
  const frame=family[idx];
- return [pos,"a word selected from the passage; use the linked learner dictionaries to confirm its exact sense in context",fallbackKoreanGloss(w),renderFallbackFrame(frame[0],w),renderFallbackFrame(frame[1],w),"see dictionary links for exact synonyms","an exact antonym may not exist; check the sense in context"];
+ return [pos,meaning,fallbackKoreanGloss(w),renderFallbackFrame(frame[0],w),renderFallbackFrame(frame[1],w),synonyms,antonyms];
 }
 // Fix (Risk C, QA-identified): a second analyze() call while one is already running could
 // reassign state.analysis out from under the first call's still-in-flight translation loop,
