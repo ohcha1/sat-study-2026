@@ -2354,10 +2354,21 @@ function findContextSentence(word,passageText){
 // the same word always gets the same generic example, which is also more consistent for a student
 // re-encountering it. Not a regression: the original per-run variation was incidental, not a
 // documented or tested behavior.
+// Milestone 6 Task 2 — conservative local POS guesser for genuinely-uncurated words only.
+// Priority order is fixed (adverb > verb > adjective > noun-suffix > default-noun); never called
+// for words with a reliable curated or morphology-base POS (see buildVocabCardData).
+function guessPOS(w){
+ if(/ly$/.test(w)) return "adverb";
+ if(/(ate|ify|ize|ise|en)$/.test(w)) return "verb";
+ if(/(ive|ous|able|ible|al|ic|ful|less|ary)$/.test(w)) return "adjective";
+ if(/(tion|sion|ment|ness|ity|ance|ence|ism|hood|ship|er|or)$/.test(w)) return "noun";
+ return "noun";
+}
 function buildFallbackVocabData(w){
  const idx=[...w].reduce((h,c)=>h+c.charCodeAt(0),0)%fallbackExamplePool.length;
  const fallback=fallbackExamplePool[idx];
- return ["academic or informational word","a word selected from the passage; use the linked learner dictionaries to confirm its exact sense in context",fallbackKoreanGloss(w),fallback[0].replaceAll("{word}",w),fallback[1].replaceAll("{word}",w),"see dictionary links for exact synonyms","an exact antonym may not exist; check the sense in context"];
+ const pos=guessPOS(w);
+ return [pos,"a word selected from the passage; use the linked learner dictionaries to confirm its exact sense in context",fallbackKoreanGloss(w),fallback[0].replaceAll("{word}",w),fallback[1].replaceAll("{word}",w),"see dictionary links for exact synonyms","an exact antonym may not exist; check the sense in context"];
 }
 // Fix (Risk C, QA-identified): a second analyze() call while one is already running could
 // reassign state.analysis out from under the first call's still-in-flight translation loop,
