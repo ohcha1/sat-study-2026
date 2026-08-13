@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>SAT English Learning Studio 2026 V6</title>
+<title>SAT English Learning Studio 2026 — AI</title>
 <style>
 :root{
   --navy:#16324F; --navy2:#1E3A5F; --blue:#DBEAFE; --sky:#E0F2FE;
@@ -56,7 +56,19 @@ textarea{min-height:480px;resize:vertical;line-height:1.65}
 .sentence{padding:10px 0;border-bottom:1px dashed #D1D5DB}.sentence:last-child{border-bottom:none}
 .sentence.loading{background:var(--sky);border-radius:9px;padding:12px 14px;margin:4px 0;border-bottom:none;animation:sentencePulse 1.4s ease-in-out infinite}.sentence.loading .ko{color:var(--navy2)}@keyframes sentencePulse{0%,100%{opacity:1}50%{opacity:.5}}.sentence.error{background:rgba(185,28,28,.06);border-left:3px solid var(--danger);border-radius:9px;padding:12px 14px;margin:4px 0;border-bottom:none}.sentence.error .ko{color:var(--danger);font-weight:700}.sentence.error .btn{margin-top:8px}
 .en{font-weight:650;line-height:1.55}.ko{color:#475569;line-height:1.55;margin-top:5px}
-.word-card{display:grid;grid-template-columns:56px minmax(140px,260px) 1fr;gap:18px;align-items:start}
+.word-card{display:block}
+.word-card-fallback{background:#F8FAFC}
+.word-card-tags{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.word-source-tag{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:800}
+.tag-curated{background:#DBEAFE;color:#1E3A5F}
+.tag-general{background:#F1F5F9;color:#64748B}
+.context-meaning{border-left:4px solid #FDBA74}
+.word-card-actions{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
+.review-state-badge{display:inline-flex;align-items:center;padding:6px 12px;border-radius:999px;background:#F1F5F9;color:#475569;font-size:12px;font-weight:800;border:none;cursor:pointer}
+.review-state-reviewing{background:#FEF3C7;color:#92400E}
+.review-state-learned{background:#DCFCE7;color:#166534}
+.word-card-more{margin-top:14px}
+.word-card-more summary{cursor:pointer;font-weight:800;color:#1E3A5F;padding:8px 0}
 .word-card>div:last-child{line-height:1.8}.word-card b{display:inline-block;margin-top:3px;margin-right:7px}.meaning-block{margin:10px 0 14px;padding:10px 12px;border-radius:9px;background:#F8FAFC}.meaning-block+.meaning-block{margin-top:14px}
 .level{display:inline-flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:50%;font-size:14px;font-weight:900;text-align:center;flex-shrink:0}
 .l9{background:var(--green)}.l10{background:var(--sky)}.l11{background:var(--yellow)}.l12{background:var(--pink)}
@@ -135,8 +147,8 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:18px}
 <div class="app">
 <header>
   <div class="brand">
-    <h1>SAT English Learning Studio 2026</h1>
-    <p>Passage Analysis · Vocabulary · Grammar · ESL · SAT Practice</p>
+    <h1>SAT English Learning Studio 2026 — AI</h1>
+    <p>SAT Reading · Vocabulary · Grammar · AI Study Tools</p>
   </div>
   <div class="header-actions">
     <button class="btn btn-light" onclick="openSaved()">저장 자료</button>
@@ -188,6 +200,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;padding:18px}
         <button class="tab" data-tab="esl">ESL 회화</button>
         <button class="tab" data-tab="sat">SAT 문제</button>
         <button class="tab" data-tab="report">학습 리포트</button>
+        <button class="tab" data-tab="wordbook">단어장</button>
       </div>
       <div id="result" class="result"><div class="empty">지문을 입력하고 <b>지문 분석하기</b>를 누르세요.</div></div>
     </div>
@@ -1817,7 +1830,13 @@ const fallbackExamplePool=[
  ["For homework, students wrote a new sentence in which “{word}” was essential to the meaning rather than decorative.","학생들은 숙제로 “{word}”가 장식적 표현이 아니라 의미에 꼭 필요한 새 문장을 작성했다."]
 ];
 let mediaRecorder=null, recordedChunks=[], recordedUrl=null, speechTranscript="", speechRecognition=null, recordingStartedAt=0, recordingDuration=0, audioContext=null, analyser=null, metricTimer=null, audioMetrics={frames:0,voiced:0,sumRms:0,sumSqRms:0,peak:0};
-const state={analysis:null,active:"overview"};
+// Milestone 4 Dev Task 4 — vocabShowAll is display-only state for the Vocabulary tab's Important/
+// Show-all toggle (see docs/milestones/milestone-04/02-ARCHITECTURE.md §3.2). It never mutates
+// a.vocab itself, so the Overview tab's word count and makeQuestions()'s vocab-in-context question
+// generator continue to see the full extracted list regardless of this toggle's state.
+// Milestone 4 Dev Task 6 — wordBookFilter is display-only state for the Word Book tab's review-state
+// segmented control (all/new/reviewing/learned), same pattern as vocabShowAll above.
+const state={analysis:null,active:"overview",vocabShowAll:false,wordBookFilter:"all"};
 
 document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{
  document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
@@ -1961,19 +1980,35 @@ function getDevApiKey(providerId){
   return (typeof window!=="undefined"&&window.SAT_STUDIO_DEV_KEYS&&window.SAT_STUDIO_DEV_KEYS[providerId])||null;
  }catch(e){return null}
 }
+// Milestone 4 Dev Task 7 — see docs/milestones/milestone-04/02-ARCHITECTURE.md §3.6. Extends the
+// existing gemini adapter with one new taskType, "vocab-context" — not a new provider, not a new
+// router concept. Shares the exact fetch/timeout/error shell already proven live for "summary";
+// only the prompt built and the response field parsed differ per taskType.
 registerProvider({
  id:"gemini",
  offline:false,
  costTier:"paid",
- canHandle(taskType){return taskType==="summary"},
+ canHandle(taskType){return taskType==="summary"||taskType==="vocab-context"},
  async request(taskType,payload,options){
   const apiKey=getDevApiKey("gemini");
   if(!apiKey){
    return {success:false,data:null,model:GEMINI_MODEL,error:"gemini: no development API key configured (DEVELOPMENT ONLY mechanism)"};
   }
-  const text=(payload&&payload.text)||"";
-  if(!text){
-   return {success:false,data:null,model:GEMINI_MODEL,error:"gemini: no text provided for summary"};
+  let prompt;
+  if(taskType==="vocab-context"){
+   // Only {word, sentence, localDefinition} are sent — no student identity, no passage title, no
+   // other metadata, matching the same privacy discipline already applied to "summary".
+   const word=(payload&&payload.word)||"", sentence=(payload&&payload.sentence)||"", localDefinition=(payload&&payload.localDefinition)||"";
+   if(!word||!sentence){
+    return {success:false,data:null,model:GEMINI_MODEL,error:"gemini: no word/sentence provided for vocab-context"};
+   }
+   prompt=`Explain in 1-2 short sentences, in Korean, why the word "${word}" has the meaning it does in this exact sentence — help a Korean high-school SAT student see how the surrounding context supports that sense. Sentence: "${sentence}". Reference dictionary sense: "${localDefinition}".`;
+  }else{
+   const text=(payload&&payload.text)||"";
+   if(!text){
+    return {success:false,data:null,model:GEMINI_MODEL,error:"gemini: no text provided for summary"};
+   }
+   prompt="Summarize the following passage in 2-3 sentences:\n\n"+text;
   }
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),(options&&options.timeoutMs)||REQUEST_TIMEOUT_MS);
@@ -1983,13 +2018,14 @@ registerProvider({
     method:"POST",
     headers:{"Content-Type":"application/json"},
     signal:controller.signal,
-    body:JSON.stringify({contents:[{parts:[{text:"Summarize the following passage in 2-3 sentences:\n\n"+text}]}]})
+    body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})
    });
    if(!res.ok)return {success:false,data:null,model:GEMINI_MODEL,error:"gemini: http "+res.status};
    const json=await res.json();
-   const summary=json&&json.candidates&&json.candidates[0]&&json.candidates[0].content&&json.candidates[0].content.parts&&json.candidates[0].content.parts[0]&&json.candidates[0].content.parts[0].text;
-   if(!summary)return {success:false,data:null,model:GEMINI_MODEL,error:"gemini: empty response"};
-   return {success:true,data:{summary:summary.trim()},model:GEMINI_MODEL,error:null};
+   const resultText=json&&json.candidates&&json.candidates[0]&&json.candidates[0].content&&json.candidates[0].content.parts&&json.candidates[0].content.parts[0]&&json.candidates[0].content.parts[0].text;
+   if(!resultText)return {success:false,data:null,model:GEMINI_MODEL,error:"gemini: empty response"};
+   const data=taskType==="vocab-context"?{explanation:resultText.trim()}:{summary:resultText.trim()};
+   return {success:true,data,model:GEMINI_MODEL,error:null};
   }catch(e){
    return {success:false,data:null,model:GEMINI_MODEL,error:"gemini: "+(e&&e.message?e.message:"request failed")};
   }finally{
@@ -2296,6 +2332,53 @@ function safeMorphologyBase(w){
  for(const c of candidates){ if(c&&(dictionary[c]||supplementalVocab[c]||broadVocabLexicon[c])) return c; }
  return null;
 }
+// Milestone 4 Dev Task 1 — see docs/milestones/milestone-04/02-ARCHITECTURE.md §3.5. Extracted,
+// behavior-preserving, from analyze()'s previously-inline per-word lookup (dictionary ->
+// supplementalVocab -> broadVocabLexicon -> morphology-base -> generic fallback, same priority
+// order, same level-computation rule per tier). Standalone so it can be called for a bare word
+// string with no passage/analysis in memory (Word Book/Review Queue, Dev Tasks 5-6, need to
+// rebuild a full card for a word saved in a past session).
+// Milestone 4 Dev Task 2 — see docs/milestones/milestone-04/02-ARCHITECTURE.md §3.2/§3.3. Added on
+// top of Dev Task 1's extraction: `curated` (true for any real dictionary/supplemental/broad/
+// morphology-base hit, false for the generic-fallback branch — powers the "Important SAT Words"
+// default filter and the student-facing curated-vs-fallback distinction) and `contextSentence`
+// (the passage sentence containing the word, for the Dictionary Card's "context meaning" field —
+// local/free, not AI-generated; §6 AI Role). `passageText` is optional: Word Book/Review Queue
+// (Dev Tasks 5-6) call this with no passage in memory, in which case contextSentence is simply
+// null — an omitted field, not an error state, per the architecture's design.
+function buildVocabCardData(word,passageText){
+ const w=word;
+ const contextSentence=passageText?findContextSentence(w,passageText):null;
+ if(dictionary[w]) return {word:w,level:levelFor(w),data:dictionary[w],curated:true,contextSentence};
+ const lengthLevel=w.length>=11?12:w.length>=9?11:10;
+ if(supplementalVocab[w]) return {word:w,level:lengthLevel,data:supplementalVocab[w],curated:true,contextSentence};
+ if(broadVocabLexicon[w]) return {word:w,level:lengthLevel,data:broadVocabLexicon[w],curated:true,contextSentence};
+ const morphBase=safeMorphologyBase(w);
+ if(morphBase){
+   const baseData=dictionary[morphBase]||supplementalVocab[morphBase]||broadVocabLexicon[morphBase];
+   if(baseData) return {word:w,level:lengthLevel,data:baseData,curated:true,contextSentence};
+ }
+ return {word:w,level:lengthLevel,data:buildFallbackVocabData(w),curated:false,contextSentence};
+}
+function findContextSentence(word,passageText){
+ const re=new RegExp("\\b"+word.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\b","i");
+ const sents=splitSentences(passageText);
+ return sents.find(s=>re.test(s))||null;
+}
+// Milestone 4 Dev Task 1 — generic-fallback card data, same fields/wording as the original inline
+// branch. One deliberate, called-out behavior difference: the original chose the fallback example
+// sentence by the word's position (forEach index) within that analysis run's batch of newly-added
+// words, so the exact same unmatched word could get a different generic example in different
+// analyses. buildVocabCardData() needs to work standalone for a bare word with no batch context
+// (Word Book/Review Queue), so the choice here is a deterministic function of the word itself —
+// the same word always gets the same generic example, which is also more consistent for a student
+// re-encountering it. Not a regression: the original per-run variation was incidental, not a
+// documented or tested behavior.
+function buildFallbackVocabData(w){
+ const idx=[...w].reduce((h,c)=>h+c.charCodeAt(0),0)%fallbackExamplePool.length;
+ const fallback=fallbackExamplePool[idx];
+ return ["academic or informational word","a word selected from the passage; use the linked learner dictionaries to confirm its exact sense in context",fallbackKoreanGloss(w),fallback[0].replaceAll("{word}",w),fallback[1].replaceAll("{word}",w),"see dictionary links for exact synonyms","an exact antonym may not exist; check the sense in context"];
+}
 // Fix (Risk C, QA-identified): a second analyze() call while one is already running could
 // reassign state.analysis out from under the first call's still-in-flight translation loop,
 // silently discarding its results and, if the Translation tab was open with differing sentence
@@ -2318,7 +2401,7 @@ async function analyze(){
  // instance persists for the whole page session once it's actually ready.
  if(chromeTranslatorState==="temporarily-failed") chromeTranslatorState="uninitialized";
  const sents=splitSentences(text), unique=[...new Set(words(text))];
- let vocab=unique.filter(w=>dictionary[w]).map(w=>({word:w,data:dictionary[w],level:levelFor(w)}));
+ let vocab=unique.filter(w=>dictionary[w]).map(w=>buildVocabCardData(w,text));
  if(vocab.length<12){
    const vocabQualityTier=(w)=>{
      if(supplementalVocab[w]) return 3;
@@ -2327,23 +2410,8 @@ async function analyze(){
      if(mb0 && (dictionary[mb0]||supplementalVocab[mb0]||broadVocabLexicon[mb0])) return 2;
      return 0;
    };
-   unique.filter(w=>w.length>=7 && !vocab.some(v=>v.word===w) && !isLikelyProperNounInPassage(w,text)).sort((a,b)=>(vocabQualityTier(b)-vocabQualityTier(a))||(b.length-a.length)).slice(0,12-vocab.length).forEach((w,i)=>{
-     const level=w.length>=11?12:w.length>=9?11:10;
-     if(supplementalVocab[w]){
-       vocab.push({word:w,level,data:supplementalVocab[w]});
-       return;
-     }
-     if(broadVocabLexicon[w]){
-       vocab.push({word:w,level,data:broadVocabLexicon[w]});
-       return;
-     }
-     const morphBase=safeMorphologyBase(w);
-     if(morphBase){
-       const baseData=dictionary[morphBase]||supplementalVocab[morphBase]||broadVocabLexicon[morphBase];
-       if(baseData){ vocab.push({word:w,level,data:baseData}); return; }
-     }
-     const fallback=fallbackExamplePool[i%fallbackExamplePool.length];
-     vocab.push({word:w,level,data:["academic or informational word","a word selected from the passage; use the linked learner dictionaries to confirm its exact sense in context",fallbackKoreanGloss(w),fallback[0].replaceAll("{word}",w),fallback[1].replaceAll("{word}",w),"see dictionary links for exact synonyms","an exact antonym may not exist; check the sense in context"]})
+   unique.filter(w=>w.length>=7 && !vocab.some(v=>v.word===w) && !isLikelyProperNounInPassage(w,text)).sort((a,b)=>(vocabQualityTier(b)-vocabQualityTier(a))||(b.length-a.length)).slice(0,12-vocab.length).forEach((w)=>{
+     vocab.push(buildVocabCardData(w,text));
    });
  }
  vocab.sort((a,b)=>b.level-a.level || b.word.length-a.word.length);
@@ -3278,16 +3346,23 @@ function makeQuestions(text,sents,vocab,n){
 function render(){
  const r=document.getElementById("result"),a=state.analysis;
  if(state.active==="report"){ r.innerHTML=reportView(); renderReportAsync(); return; }
+ // Milestone 4 Dev Task 5 — see docs/milestones/milestone-04/02-ARCHITECTURE.md §3.3. Word Book is
+ // account-level (spans saved words across sessions), not tied to state.analysis, so it's handled
+ // here exactly like "report" — before the `if(!a)` guard — matching that existing precedent.
+ if(state.active==="wordbook"){ r.innerHTML=wordBookView(); renderWordBookAsync(); return; }
  if(!a){r.innerHTML='<div class="empty">지문을 입력하고 <b>지문 분석하기</b>를 누르세요.</div>';return}
  if(state.active==="overview") r.innerHTML=overview(a);
  if(state.active==="translation") r.innerHTML=translation(a);
- if(state.active==="vocab") r.innerHTML=vocab(a);
+ if(state.active==="vocab"){ r.innerHTML=vocab(a); ensureVocabProgressLoaded(); }
  if(state.active==="phrases") r.innerHTML=phrases(a);
  if(state.active==="grammar") r.innerHTML=grammar(a);
  if(state.active==="examples") r.innerHTML=examples(a);
  if(state.active==="esl") r.innerHTML=esl(a);
  if(state.active==="sat") r.innerHTML=sat(a);
 }
+// Milestone 4 Dev Task 4 — flips the Vocabulary tab's display-only filter and re-renders. Matches
+// this file's existing inline-handler convention (onclick="analyze()" etc.).
+function toggleVocabShowAll(){ state.vocabShowAll=!state.vocabShowAll; render(); }
 // Feature: optional Gemini summary card. Additive only — does not replace or modify the local
 // extractive summary (summaryEn/summaryKo) rendered in the card just above it. Whether the button
 // or the disabled/informational note renders is decided synchronously here via the already-existing
@@ -3330,6 +3405,32 @@ async function loadGeminiSummary(){
   }
  }finally{
   geminiSummaryInFlight=false;
+ }
+}
+// Milestone 4 Dev Task 7 — see docs/milestones/milestone-04/02-ARCHITECTURE.md §3.6. Same
+// render-time-key-check / in-flight-guard / try-finally / graceful-failure pattern as
+// loadGeminiSummary() above, keyed per word (vocabContextInFlight is an object, not a single flag,
+// since multiple word cards can each have their own button open at once). Only ever appends into
+// its own small area within the card — never touches v.data[1]/[2] or the local context sentence,
+// so the core Dictionary Card stays fully correct and usable even if this fails or is never used.
+let vocabContextInFlight={};
+async function loadVocabContext(word,sentence,localDefinition){
+ if(vocabContextInFlight[word])return;
+ const root=document.getElementById("vocabContext_"+word);
+ if(!root)return;
+ vocabContextInFlight[word]=true;
+ root.innerHTML=`<div class="small">AI 설명을 불러오는 중…</div>`;
+ try{
+  const routed=await aiRouter.request("vocab-context",{word,sentence,localDefinition});
+  const liveRoot=document.getElementById("vocabContext_"+word);
+  if(!liveRoot) return;
+  if(routed.success&&routed.data&&routed.data.explanation){
+   liveRoot.innerHTML=`<div class="ko">${escapeHtml(routed.data.explanation)}</div>`;
+  }else{
+   liveRoot.innerHTML=`<div class="small">AI 설명을 불러오지 못했습니다: ${escapeHtml(routed.error||"알 수 없는 오류")}</div>`;
+  }
+ }finally{
+  vocabContextInFlight[word]=false;
  }
 }
 // Milestone 3 Dev Task 3 — see docs/milestones/milestone-03/02-ARCHITECTURE.md §3a. Ported from
@@ -3380,13 +3481,75 @@ function dictionaryLinks(word){
  <a class="source-link" target="_blank" rel="noopener" href="https://dictionary.cambridge.org/dictionary/english/${w}">Cambridge</a>
  <a class="source-link" target="_blank" rel="noopener" href="https://www.thesaurus.com/browse/${w}">Thesaurus</a></div>`;
 }
-function vocab(a){return a.vocab.map(v=>`<div class="card word-card">
- <div><span class="level l${v.level}">${v.level}</span></div>
- <div class="word">${v.word}<div class="pron-row"><span class="ipa">${getIPA(v.word)}</span><button class="speak-btn" onclick='speakAmerican(${JSON.stringify(v.word)})'>🔊 미국식 발음 듣기</button></div><div class="small" style="margin-top:8px">${v.data[0]}</div></div>
- <div><div class="meaning-block"><b>English meaning</b><div style="margin-top:9px;line-height:1.8">${v.data[1]}</div></div>
- <div class="meaning-block"><b>한국어 뜻</b><div style="margin-top:9px;line-height:1.8">${v.data[2]}</div></div>
- <div class="syn-ant"><div class="syn"><b>Synonyms · 동의어</b><div style="margin-top:7px">${v.data[5]||"문맥에 따라 확인"}</div></div><div class="ant"><b>Antonyms · 반의어</b><div style="margin-top:7px">${v.data[6]||"문맥에 따라 확인"}</div></div></div>
- <div class="example"><div class="example-title">High-school academic example</div>${v.data[3]}<br><span class="ko">(${v.data[4]})</span></div>${dictionaryLinks(v.word)}</div></div>`).join("")}
+// Milestone 4 Dev Task 3 — see docs/milestones/milestone-04/02-ARCHITECTURE.md §3.1/§3.4. Card
+// redesigned around an above/below-fold split so the most useful information (word, pronunciation,
+// part of speech, context meaning, definitions, save/review actions) is visible on a mobile screen
+// without scrolling past secondary content — synonyms/antonyms/example/dictionary links move into a
+// native <details> disclosure (no new JS state, degrades gracefully everywhere). Curated vs.
+// generic-fallback cards get a plain-language tag (source-tag), never technical/provider wording,
+// per the CEO's fallback-transparency instruction.
+//
+// Word family / root-etymology: intentionally NOT rendered this milestone. No current lexicon entry
+// carries this data (buildVocabCardData()'s `data` array has no such field), and the CEO's
+// instruction is explicit — do not show large empty sections, and do not spend this milestone
+// building a new etymology dataset. Adding a permanently-hidden placeholder for a field with no data
+// source yet would be complexity with no present value; the field can be added to this template
+// later, alongside whatever milestone actually sources the data (static expansion or an AI
+// enhancement — see architecture doc §3.1).
+//
+// Save-to-Word-Book / review-state controls are present (so the above-the-fold layout is final now,
+// not redesigned again in Dev Tasks 5-6) but inert in this task — disabled, with a tooltip — per the
+// architecture's task breakdown; Dev Tasks 5-6 wire them to vocabularyProgress.
+//
+// v.word/v.data are already safe by construction (word() only extracts [a-z']+ tokens; dictionary/
+// fallback text is static/template-generated) and were unescaped in the original card too, so that
+// is unchanged here. v.contextSentence is new in this task and is NOT safe by construction — it's a
+// literal sentence from the student's pasted passage — so it is explicitly escaped, per
+// CODING_STANDARDS.md's default-to-escaping rule for any new innerHTML usage.
+// Milestone 4 Dev Task 4 — see docs/milestones/milestone-04/02-ARCHITECTURE.md §3.2. Defaults to
+// "Important SAT Words" (curated entries only) so a student isn't shown every extracted word,
+// including the generic-fallback ones, by default; "전체 단어 보기" reveals the rest. Toggling only
+// changes what this function renders — a.vocab itself is never filtered/mutated (see the state
+// declaration's comment for why that matters).
+// Milestone 4 Dev Task 5 — extracted from vocab(a) so wordBookView()/renderWordBookAsync() can
+// render the exact same card for a word with no current a.vocab entry (a word saved from a past
+// analysis, reconstructed cold via buildVocabCardData()). progress is undefined for a never-saved/
+// never-seen word; treated as "not saved"/"new" (falsy), matching this codebase's established
+// defensive-default convention for missing IndexedDB fields.
+function vocabCardTemplate(v){
+ const progress=vocabProgressCache[v.word]||{};
+ const saved=!!progress.savedToWordBook;
+ const reviewState=progress.reviewState||"new";
+ // Milestone 4 Dev Task 7 — render-time key check (fails closed before any click, same pattern as
+ // overview()'s Gemini summary card), and only offered when there's a context sentence to explain —
+ // a Word Book card reconstructed with no passage in memory has contextSentence:null and correctly
+ // gets no AI button, since there is nothing contextual to explain.
+ const vocabContextAvailable=!!getDevApiKey("gemini")&&!!v.contextSentence;
+ return `<div class="card word-card${v.curated?"":" word-card-fallback"}">
+ <div class="word-card-above">
+  <div class="word-card-tags"><span class="level l${v.level}">${v.level}</span><span class="word-source-tag ${v.curated?"tag-curated":"tag-general"}">${v.curated?"사전 수록 단어":"일반 설명"}</span></div>
+  <div class="word">${v.word}</div>
+  <div class="pron-row"><span class="ipa">${getIPA(v.word)}</span><button class="speak-btn" onclick='speakAmerican(${JSON.stringify(v.word)})'>🔊 미국식 발음 듣기</button></div>
+  <div class="small" style="margin-top:4px">${v.data[0]}</div>
+  ${v.contextSentence?`<div class="meaning-block context-meaning"><b>문맥 속 의미</b><div style="margin-top:6px;line-height:1.7">${escapeHtml(v.contextSentence)}</div></div>`:""}
+  <div class="meaning-block"><b>한국어 뜻</b><div style="margin-top:9px;line-height:1.8">${v.data[2]}</div></div>
+  <div class="meaning-block"><b>English meaning</b><div style="margin-top:9px;line-height:1.8">${v.data[1]}</div></div>
+  <div class="word-card-actions">
+   <button class="btn ${saved?"btn-primary":"btn-soft"}" onclick='toggleWordBookSave(${JSON.stringify(v.word)})'>${saved?"저장됨 ✓ (제거)":"단어장에 저장"}</button>
+   <button class="review-state-badge review-state-${reviewState}" onclick='cycleReviewState(${JSON.stringify(v.word)})' title="눌러서 학습 상태 변경">${REVIEW_STATE_LABELS[reviewState]}</button>
+  </div>
+ </div>
+ <details class="word-card-more"><summary>더 보기 (동의어·반의어·예문)</summary>
+  <div class="syn-ant"><div class="syn"><b>Synonyms · 동의어</b><div style="margin-top:7px">${v.data[5]||"문맥에 따라 확인"}</div></div><div class="ant"><b>Antonyms · 반의어</b><div style="margin-top:7px">${v.data[6]||"문맥에 따라 확인"}</div></div></div>
+  <div class="example"><div class="example-title">High-school academic example</div>${v.data[3]}<br><span class="ko">(${v.data[4]})</span></div>${dictionaryLinks(v.word)}
+  ${vocabContextAvailable?`<div style="margin-top:12px"><button class="btn btn-soft" onclick='loadVocabContext(${JSON.stringify(v.word)},${JSON.stringify(v.contextSentence)},${JSON.stringify(v.data[1])})'>AI: 왜 이 뜻일까요? (선택)</button></div><div id="vocabContext_${v.word}" style="margin-top:8px"></div>`:""}
+ </details></div>`;
+}
+function vocab(a){
+ const list=state.vocabShowAll?a.vocab:a.vocab.filter(v=>v.curated);
+ const toggle=`<div class="card" style="padding:14px 16px"><button class="btn btn-soft" onclick="toggleVocabShowAll()">${state.vocabShowAll?"중요 SAT 단어만 보기":`전체 단어 보기 (${a.vocab.length}개)`}</button></div>`;
+ if(list.length===0) return toggle+`<div class="empty" style="height:120px">이 지문에서는 사전에 있는 중요 단어를 찾지 못했습니다. 위 버튼으로 전체 단어를 확인해 보세요.</div>`;
+ return toggle+list.map(vocabCardTemplate).join("")}
 
 function phrases(a){
  // Idioms & Phrases Quality #11 / #11.1: a.phrases is an array of match objects from
@@ -4415,6 +4578,9 @@ async function loginAccount(userId,password){
  toast(`${profile.displayName}님, 로그인되었습니다.`);
  renderAuthUI(); closeAuthPopover();
  if(state.active==="report") render();
+ // Milestone 4 Dev Task 5 — vocab/word book tabs are per-user (vocabProgressCache), so a login
+ // needs the same re-render-if-currently-shown treatment the report tab already gets above.
+ if(state.active==="vocab"||state.active==="wordbook") render();
  return true;
 }
 function logoutAccount(){
@@ -4423,6 +4589,7 @@ function logoutAccount(){
  toast("로그아웃되었습니다.");
  renderAuthUI(); closeAuthPopover();
  if(state.active==="report") render();
+ if(state.active==="vocab"||state.active==="wordbook") render();
 }
 
 function toggleAuthPopover(){
@@ -4627,6 +4794,46 @@ async function renderReportAsync(){
  <div class="card"><h3>최근 오답 리포트</h3>${wrongCards}</div>
  <div class="card"><h3>저장된 학습 자료</h3>${savedCards}</div>`;
 }
+// Milestone 4 Dev Task 5 — see docs/milestones/milestone-04/02-ARCHITECTURE.md §3.3. Account-level,
+// not tied to any single passage's analysis — same guest-mode gating pattern as reportView() above,
+// reworded for Word Book. Cards are rebuilt cold via buildVocabCardData(word) (Dev Task 1), not
+// read from any in-memory analysis, since a saved word may come from a different, no-longer-loaded
+// passage/session.
+function wordBookView(){
+ if(!auth.userId){
+  return `<div class="card c-blue"><h3>단어장</h3>
+  <div class="ko" style="line-height:1.8">로그인하지 않은 상태(게스트)입니다. 게스트 모드에서는 저장한 단어가 남지 않습니다.<br>단어장을 이용하려면 상단의 <b>로그인</b> 버튼에서 로컬 프로필을 만들어 주세요.</div></div>`;
+ }
+ return `<div id="wordBookRoot"><div class="empty" style="height:200px">단어장을 불러오는 중입니다...</div></div>`;
+}
+// Milestone 4 Dev Task 6 — filter/segmented-control added on top of Dev Task 5's view, per
+// architecture §3.3's "one view with two filter modes" recommendation (smaller diff than a second
+// tab, since the underlying data and card rendering are identical — only the filter differs).
+function wordBookFilterBar(saved){
+ const counts={all:saved.length,new:0,reviewing:0,learned:0};
+ saved.forEach(r=>{ counts[r.reviewState||"new"]++; });
+ const opts=[["all","전체"],["new","새 단어"],["reviewing","복습 중"],["learned","학습 완료"]];
+ return `<div class="card" style="padding:14px 16px;display:flex;gap:8px;flex-wrap:wrap">${opts.map(([key,label])=>`<button class="btn ${state.wordBookFilter===key?"btn-primary":"btn-soft"}" onclick='setWordBookFilter(${JSON.stringify(key)})'>${label} (${counts[key]})</button>`).join("")}</div>`;
+}
+function setWordBookFilter(key){ state.wordBookFilter=key; renderWordBookAsync(); }
+async function renderWordBookAsync(){
+ const root=document.getElementById("wordBookRoot");
+ if(!root||!auth.userId) return;
+ const rows=await idbGetAllByUser("vocabularyProgress",auth.userId);
+ vocabProgressCache=Object.fromEntries(rows.map(r=>[r.word,r]));
+ vocabProgressLoadedFor=auth.userId;
+ const liveRoot=document.getElementById("wordBookRoot");
+ if(!liveRoot) return; // user navigated away while this awaited — stale target, not an error
+ const saved=rows.filter(r=>r.savedToWordBook);
+ if(saved.length===0){
+  liveRoot.innerHTML=`<div class="empty" style="height:200px">아직 단어장에 저장한 단어가 없습니다. '학년별 단어' 탭에서 단어 카드의 <b>단어장에 저장</b> 버튼을 눌러보세요.</div>`;
+  return;
+ }
+ const filtered=state.wordBookFilter==="all"?saved:saved.filter(r=>(r.reviewState||"new")===state.wordBookFilter);
+ const cards=filtered.map(r=>vocabCardTemplate(buildVocabCardData(r.word))).join("")
+  ||`<div class="empty" style="height:120px">이 학습 상태에 해당하는 저장된 단어가 없습니다.</div>`;
+ liveRoot.innerHTML=`<div class="card c-blue"><h3>단어장 · 저장한 단어 ${saved.length}개</h3><div class="ko">지문과 별개로 저장해 둔 단어입니다. 발음을 듣고, 학습 상태를 표시해 보세요.</div></div>${wordBookFilterBar(saved)}${cards}`;
+}
 function errorAdvice(errorType){
  const map={
   "근거 확인 부족":"답을 고르기 전에 지문에서 해당 근거 문장을 반드시 찾아 표시하는 습관을 들이세요.",
@@ -4640,6 +4847,89 @@ function errorAdvice(errorType){
  return map[errorType]||"오답 노트를 참고해 비슷한 유형을 다시 연습하세요.";
 }
 
+// Milestone 4 Dev Task 5 — see docs/milestones/milestone-04/02-ARCHITECTURE.md §3.3. Word Book /
+// Review reuse the existing vocabularyProgress store (keyPath "id" = userId+"_"+word, existing
+// userId index) — additive fields only, no new object store or index. updateVocabProgress() is the
+// single read-merge-write entry point for every writer (the passive "seen" tracker below, the
+// explicit Word Book save toggle, and the Task 6 review-state change), so no writer can blind-
+// overwrite fields another writer already set.
+//
+// Hot-fix (Principal Review MEDIUM finding, docs/milestones/milestone-04/05-REVIEW-REPORT.md §4):
+// two callers targeting the SAME word (e.g. a save toggle and a review-state cycle firing close
+// together) could both read the record before either wrote it back, so one write silently lost the
+// other's field. vocabProgressQueue chains every call for a given word onto the previous one via
+// promise chaining, so a word's read-modify-write never overlaps with another mutation of that same
+// word; different words get independent chains and never block each other. A rejected link is
+// caught before being stored back into the queue so a failed mutation can't permanently wedge later
+// mutations for that word, while the original caller still sees the real rejection via `run`.
+let vocabProgressQueue={};
+function withVocabProgressLock(word,fn){
+ const prev=vocabProgressQueue[word]||Promise.resolve();
+ const run=prev.catch(()=>{}).then(fn);
+ vocabProgressQueue[word]=run.catch(()=>{});
+ return run;
+}
+async function updateVocabProgress(word,patch){
+ if(!auth.userId) return null;
+ return withVocabProgressLock(word,async()=>{
+  const id=auth.userId+"_"+word;
+  const existing=await idbGet("vocabularyProgress",id)||{};
+  const patchObj=typeof patch==="function"?patch(existing):patch;
+  const record={...existing,id,userId:auth.userId,word,...patchObj};
+  await idbPut("vocabularyProgress",record);
+  vocabProgressCache[word]=record;
+  return record;
+ });
+}
+// In-memory cache of the current user's vocabularyProgress rows, keyed by word, so vocab(a) (a
+// synchronous render function) can show saved/review state without making every render async — a
+// change that would ripple through render()'s many synchronous call sites file-wide. Loaded lazily
+// per user; render()'s "vocab" branch calls ensureVocabProgressLoaded() after each synchronous
+// render, which re-renders once (only if still on the vocab tab) after the async load resolves.
+let vocabProgressCache={},vocabProgressLoadedFor=undefined;
+async function ensureVocabProgressLoaded(){
+ if(vocabProgressLoadedFor===auth.userId) return;
+ if(!auth.userId){ vocabProgressCache={}; vocabProgressLoadedFor=null; if(state.active==="vocab") render(); return; }
+ const rows=await idbGetAllByUser("vocabularyProgress",auth.userId);
+ vocabProgressCache=Object.fromEntries(rows.map(r=>[r.word,r]));
+ vocabProgressLoadedFor=auth.userId;
+ if(state.active==="vocab") render();
+}
+// Milestone 4 Dev Task 5 — explicit per-word save/unsave, independent of whether the whole passage
+// is ever saved. Matches this file's existing inline-handler convention (onclick="analyze()" etc.).
+async function toggleWordBookSave(word){
+ if(!auth.userId){ toast("단어장에 저장하려면 로그인이 필요합니다."); return; }
+ let nowSaved;
+ // Hot-fix: decide save/unsave from the record as read INSIDE the per-word lock (not the outer
+ // vocabProgressCache, which may be stale if another mutation for this word is still in flight),
+ // so back-to-back toggles can never both compute the same "next" state from the same stale read.
+ await updateVocabProgress(word,existing=>{
+  nowSaved=!(existing&&existing.savedToWordBook);
+  return{savedToWordBook:nowSaved,savedAt:nowSaved?new Date().toISOString():null};
+ });
+ toast(nowSaved?"단어장에 저장했습니다.":"단어장에서 제거했습니다.");
+ render();
+}
+// Milestone 4 Dev Task 6 — see docs/milestones/milestone-04/02-ARCHITECTURE.md §3.3. A simple
+// three-state cycle (new -> reviewing -> learned -> new), not a spaced-repetition schedule, per the
+// CEO's "reuse existing data, keep it minimal" direction. Works on any word (saved or not), matching
+// the Dictionary Card's field list, which lists review state alongside — not conditional on — the
+// save action.
+const REVIEW_STATE_ORDER=["new","reviewing","learned"];
+const REVIEW_STATE_LABELS={new:"새 단어",reviewing:"복습 중",learned:"학습 완료"};
+async function cycleReviewState(word){
+ if(!auth.userId){ toast("학습 상태를 저장하려면 로그인이 필요합니다."); return; }
+ let next;
+ // Hot-fix: same reasoning as toggleWordBookSave() above — read "current" from the record inside
+ // the per-word lock so rapid repeated cycles each advance from the previous cycle's real result.
+ await updateVocabProgress(word,existing=>{
+  const current=(existing&&existing.reviewState)||"new";
+  next=REVIEW_STATE_ORDER[(REVIEW_STATE_ORDER.indexOf(current)+1)%REVIEW_STATE_ORDER.length];
+  return{reviewState:next,reviewedAt:new Date().toISOString()};
+ });
+ toast(`학습 상태: ${REVIEW_STATE_LABELS[next]}`);
+ render();
+}
 // ---- #20A.16-17 saved study sessions (extends existing saveCurrent output;
 // does not duplicate static dictionary data -- stores only this session's
 // already-computed output) ----
@@ -4660,9 +4950,11 @@ async function saveSessionForUser(){
  }
  await idbPut("savedPassages",{id:uid("saved"),userId:auth.userId,sessionId,date:session.date,
   title:a.title,domain:a.grade||"",satScore});
- (a.vocab||[]).forEach(async v=>{
-  await idbPut("vocabularyProgress",{id:auth.userId+"_"+v.word,userId:auth.userId,word:v.word,lastSeen:session.date});
- });
+ // Milestone 4 Dev Task 5 — was a blind idbPut() with a fresh {id,userId,word,lastSeen} object,
+ // which would have silently erased any Word Book save / review state Dev Tasks 5-6 add on the
+ // same record (architecture doc §4 risk 2). Routed through updateVocabProgress()'s read-merge-write
+ // instead; behavior for lastSeen itself is unchanged.
+ (a.vocab||[]).forEach(v=>{ updateVocabProgress(v.word,{lastSeen:session.date}); });
 }
 async function openSavedSession(sessionId){
  const s=await idbGet("studySessions",sessionId);
