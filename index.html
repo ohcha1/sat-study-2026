@@ -2326,6 +2326,18 @@ function safeMorphologyBase(w){
  for(const c of candidates){ if(c&&(dictionary[c]||supplementalVocab[c]||broadVocabLexicon[c])) return c; }
  return null;
 }
+// Milestone 6 Task 4 — mirrors safeMorphologyBase()'s own suffix-detection order/guards (ies/es/s
+// before ed/ing) so the caller can tell which inflection matched without changing that function's
+// existing signature/callers. "s" covers ies/es/s (plural, 3rd-person singular) - always safe to
+// reuse a base's whole record. "ed"/"ing" need the stricter check in buildVocabCardData().
+function morphSuffixType(w){
+ if(w.endsWith("ies")&&w.length>4) return "s";
+ if(w.endsWith("es")) return "s";
+ if(w.endsWith("s")&&!w.endsWith("ss")) return "s";
+ if(w.endsWith("ed")) return "ed";
+ if(w.endsWith("ing")) return "ing";
+ return null;
+}
 // Milestone 4 Dev Task 1 — see docs/milestones/milestone-04/02-ARCHITECTURE.md §3.5. Extracted,
 // behavior-preserving, from analyze()'s previously-inline per-word lookup (dictionary ->
 // supplementalVocab -> broadVocabLexicon -> morphology-base -> generic fallback, same priority
@@ -2350,7 +2362,25 @@ function buildVocabCardData(word,passageText){
  const morphBase=safeMorphologyBase(w);
  if(morphBase){
    const baseData=dictionary[morphBase]||supplementalVocab[morphBase]||broadVocabLexicon[morphBase];
-   if(baseData) return {word:w,level:lengthLevel,data:baseData,curated:true,contextSentence};
+   if(baseData){
+     // Milestone 6 Task 4 — field-level reuse. Meaning/POS/synonyms/antonyms are always safe to
+     // carry over from an inflected surface form's base (baseData[1,0,5,6]); the plural/3rd-person
+     // -s family is safe for the example too. -ed/-ing forms commonly drift into adjectival use
+     // (e.g. "surprising", "complicated") even when the base is a verb, so their example is only
+     // reused when the base's POS is an unqualified "verb" - otherwise only the example is
+     // regenerated (via the same POS-aware frame families from Task 3, working POS forced to
+     // "adjective" per the approved conservative rule), while curated:true and every other field
+     // still comes from the base. Never discards the base's lexical data just because its example
+     // is unsafe to reuse.
+     const suffixType=morphSuffixType(w);
+     const edIngUnsafe=(suffixType==="ed"||suffixType==="ing")&&baseData[0]!=="verb";
+     if(!edIngUnsafe) return {word:w,level:lengthLevel,data:baseData,curated:true,contextSentence};
+     const family=fallbackFrameFamilies.adjective;
+     const idx=[...w].reduce((h,c)=>h+c.charCodeAt(0),0)%family.length;
+     const frame=family[idx];
+     const data=[baseData[0],baseData[1],baseData[2],renderFallbackFrame(frame[0],w),renderFallbackFrame(frame[1],w),baseData[5],baseData[6]];
+     return {word:w,level:lengthLevel,data,curated:true,contextSentence};
+   }
  }
  return {word:w,level:lengthLevel,data:buildFallbackVocabData(w),curated:false,contextSentence};
 }
