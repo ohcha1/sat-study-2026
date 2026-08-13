@@ -2421,7 +2421,17 @@ async function analyze(){
  // shown — no padding with unrelated phraseBank entries, no forced minimum count.
  const phrases=findPhraseMatches(text,sents);
  const qcount=Number(document.getElementById("qcount").value);
- const questions=makeQuestions(text,sents,vocab,qcount);
+ // Milestone 5 Dev Task 3 — see docs/milestones/milestone-05/02-ARCHITECTURE.md §5.3. Guest and
+ // logged-in-but-no-history both naturally fall through to weakTypes=[], which
+ // biasForWeakTypes() already treats as its unbiased no-op path — no separate guest guard needed
+ // inside makeQuestions() itself. try/catch fails open (unbiased selection) rather than blocking
+ // analysis on a rare IndexedDB error.
+ let weakTypes=[];
+ if(auth.userId){
+  try{ weakTypes=computeWeakTypes(await idbGetAllByUser("satAttempts",auth.userId)); }
+  catch(e){ weakTypes=[]; }
+ }
+ const questions=makeQuestions(text,sents,vocab,qcount,weakTypes);
  // Milestone 3 Dev Task 3 — see docs/milestones/milestone-03/02-ARCHITECTURE.md §3a. state.analysis
  // is now assigned BEFORE translations resolve (translations start as 'loading' placeholders), so
  // render()/updateTranslationRow() can show per-sentence progress as each one completes — the
@@ -3317,14 +3327,47 @@ const QG_PRIORITY=["Central Idea","Inference","Command of Evidence","Purpose/Fun
 const QG_GENERATORS=[genCentralIdea,genInference,genPurposeFunction,genTextStructure,
  genCauseEffect,genComparisonContrast,genTransition,genDetailEvidence,
  genVocabInContext,genCommandOfEvidence,genAuthorsPurpose];
-function makeQuestions(text,sents,vocab,n){
+// Milestone 5 Dev Task 3 — see docs/milestones/milestone-05/02-ARCHITECTURE.md §5.1. Reuses the
+// report tab's own established "weak" convention (total>=3 matches buildDeterministicSummary()'s
+// minimum sample size, <0.6 matches typeRows'/skillRows' existing acc<60?"weak" CSS threshold) rather
+// than inventing new numbers. Excludes retry-kind attempts so a coached retry can't make a type look
+// less weak than the student's genuine unaided performance. Caps at 2 types, matching
+// buildDeterministicSummary()'s existing cap.
+function computeWeakTypes(attempts){
+ const typeStats={};
+ attempts.filter(a=>a.attemptKind!=="retry").forEach(a=>{
+  typeStats[a.questionType]=typeStats[a.questionType]||{correct:0,total:0};
+  typeStats[a.questionType].total++;
+  if(a.isCorrect)typeStats[a.questionType].correct++;
+ });
+ return Object.entries(typeStats)
+  .filter(([,v])=>v.total>=3 && (v.correct/v.total)<0.6)
+  .sort((a,b)=>(a[1].correct/a[1].total)-(b[1].correct/b[1].total))
+  .slice(0,2)
+  .map(([k])=>k);
+}
+// Guarantees, not replaces: weak-type questions are only preferentially included, up to a cap of
+// ~35% of n (CEO-approved range 30-40%), never all of it — the remaining majority always follows the
+// normal QG_PRIORITY selection. Fails open by construction: an empty weakTypes list (no history,
+// insufficient history, or a passage that doesn't support the weak type at all) falls straight
+// through to today's exact unbiased behavior, not a special-cased guard. Final re-sort preserves the
+// existing QG_PRIORITY display order regardless of which questions were preferentially included.
+function biasForWeakTypes(built,n,weakTypes){
+ if(!weakTypes||!weakTypes.length) return built.slice(0,Math.min(10,Math.max(0,n)));
+ const cap=Math.max(1,Math.ceil(n*0.35));
+ const weak=built.filter(q=>weakTypes.includes(q.type)).slice(0,cap);
+ const rest=built.filter(q=>!weak.includes(q));
+ const combined=[...weak,...rest].slice(0,Math.min(10,Math.max(0,n)));
+ return combined.sort((a,b)=>QG_PRIORITY.indexOf(a.type)-QG_PRIORITY.indexOf(b.type));
+}
+function makeQuestions(text,sents,vocab,n,weakTypes){
  const satSents=qgSplitSentences(text);
  const sig=qgSignals(satSents);
  const ctx={sents:satSents,vocab,sig,usedIdx:new Set(),usedWords:new Set()};
  const built=[];
  for(const gen of QG_GENERATORS){ const q=gen(ctx); if(q) built.push(q); }
  built.sort((a,b)=>QG_PRIORITY.indexOf(a.type)-QG_PRIORITY.indexOf(b.type));
- const capped=built.slice(0,Math.min(10,Math.max(0,n)));
+ const capped=biasForWeakTypes(built,n,weakTypes);
  return capped.map((q,i)=>{
    const pos=i%4;
    const arr=new Array(4);
