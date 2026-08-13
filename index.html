@@ -1795,20 +1795,34 @@ const broadVocabLexicon={
  workforce:["noun","the people engaged in or available for work, especially within a particular company or country","노동력, 인력","Automation has changed the skills required of the manufacturing workforce.","자동화는 제조업 노동력에게 요구되는 기술을 바꾸어 놓았다.","labor force, employees, staff","—"],
 };
 
-const fallbackExamplePool=[
- ["During the laboratory review, the class used the term “{word}” to describe a pattern that had not been obvious at first.","실험 검토 시간에 학생들은 처음에는 분명하지 않았던 양상을 설명하기 위해 “{word}”라는 단어를 사용했다."],
- ["The editorial board selected “{word}” because it expressed the writer's point more precisely than a simpler alternative.","편집부는 “{word}”가 더 쉬운 대안보다 글쓴이의 요점을 정확히 표현한다고 판단해 선택했다."],
- ["A previously overlooked historical account showed how “{word}” shaped the public response to the reform.","이전에는 주목받지 못했던 한 역사적 기록은 “{word}”가 개혁에 대한 대중의 반응을 어떻게 형성했는지를 보여주었다."],
- ["The science club debated whether “{word}” accurately described the evidence collected during the field study.","과학 동아리는 “{word}”가 현장 조사에서 수집한 증거를 정확히 설명하는지 토론했다."],
- ["A careful reader should determine how “{word}” changes the tone of the paragraph before selecting an answer.","신중한 독자는 답을 고르기 전에 “{word}”가 문단의 어조를 어떻게 바꾸는지 판단해야 한다."],
- ["The principal asked the student council to define “{word}” and apply it to a realistic school policy.","교장은 학생회에 “{word}”를 정의하고 실제적인 학교 정책에 적용해 보라고 요청했다."],
- ["By comparing two sources, the class discovered that “{word}” carried a more specific meaning in the second text.","두 자료를 비교하면서 학생들은 “{word}”가 두 번째 글에서 더 구체적인 의미를 가진다는 것을 발견했다."],
- ["The debate coach encouraged students to use “{word}” only when the available evidence truly justified it.","토론 코치는 이용 가능한 증거가 실제로 뒷받침할 때만 “{word}”를 사용하라고 학생들에게 조언했다."],
- ["In the final revision, the author replaced a vague phrase with “{word}” to make the argument more exact.","최종 수정에서 저자는 주장을 더 정확하게 만들기 위해 모호한 표현을 “{word}”로 바꾸었다."],
- ["The research team discussed whether “{word}” was the best term for interpreting the unexpected result.","연구팀은 예상 밖의 결과를 해석하는 데 “{word}”가 가장 적절한 단어인지 논의했다."],
- ["The literature class examined how “{word}” contributed to the narrator's changing perspective.","문학 수업에서는 “{word}”가 화자의 변화하는 관점에 어떻게 기여했는지 살펴보았다."],
- ["For homework, students wrote a new sentence in which “{word}” was essential to the meaning rather than decorative.","학생들은 숙제로 “{word}”가 장식적 표현이 아니라 의미에 꼭 필요한 새 문장을 작성했다."]
-];
+// Milestone 6 Task 3 — POS-aware fallback frame families, replacing the old POS-blind
+// fallbackExamplePool (which always framed the target word as a discussed/quoted term, e.g.
+// "the class used the term '{word}'..." — the exact pattern identified as the root cause of
+// words losing their natural grammatical function on the Example tab). Each POS gets 3 frames
+// that use the word in its real grammatical role; unknown POS routes to the noun family
+// (see guessPOS()) rather than a new meta-discussion frame. See 02-ARCHITECTURE.md §6.
+const fallbackFrameFamilies={
+ verb:[
+  ["Students used the reading to {word} their argument more clearly.","학생들은 자신의 주장을 더 명확하게 “{word}”하기 위해 지문을 활용했다."],
+  ["The evidence seemed to {word} that the original explanation was incomplete.","그 증거는 기존 설명이 불완전하다는 것을 “{word}”하는 것처럼 보였다."],
+  ["The team continued to {word} on the same approach throughout the project.","그 팀은 프로젝트 내내 같은 방식으로 “{word}”하는 것을 계속했다."]
+ ],
+ adjective:[
+  ["The committee proposed a {word} solution to the ongoing problem.","위원회는 계속되는 문제에 대해 “{word}”한 해결책을 제안했다."],
+  ["The results seemed {word} once researchers reviewed the complete data.","연구자들이 전체 자료를 검토하자 그 결과는 “{word}”해 보였다."],
+  ["The findings were {word} in ways the researchers had not expected.","그 결과는 연구자들이 예상하지 못한 방식으로 “{word}”했다."]
+ ],
+ adverb:[
+  ["Costs {word} increased throughout the following year.","비용은 그 다음 해 내내 “{word}” 증가했다."],
+  ["{Word}, the results supported the original hypothesis.","“{word}”, 그 결과는 원래의 가설을 뒷받침했다."],
+  ["The two approaches were {word} similar in their overall structure.","두 접근 방식은 전체적인 구조 면에서 “{word}” 비슷했다."]
+ ],
+ noun:[
+  ["The {word} became a central topic of discussion among researchers.","그 “{word}”는 연구자들 사이에서 핵심적인 논의 주제가 되었다."],
+  ["Teachers explained the {word} using a familiar classroom example.","교사들은 익숙한 교실 예시를 활용해 그 “{word}”를 설명했다."],
+  ["The report provided a detailed analysis of the {word}.","그 보고서는 “{word}”에 대한 상세한 분석을 제공했다."]
+ ]
+};
 let mediaRecorder=null, recordedChunks=[], recordedUrl=null, speechTranscript="", speechRecognition=null, recordingStartedAt=0, recordingDuration=0, audioContext=null, analyser=null, metricTimer=null, audioMetrics={frames:0,voiced:0,sumRms:0,sumSqRms:0,peak:0};
 // Milestone 4 Dev Task 4 — vocabShowAll is display-only state for the Vocabulary tab's Important/
 // Show-all toggle (see docs/milestones/milestone-04/02-ARCHITECTURE.md §3.2). It never mutates
@@ -2364,11 +2378,16 @@ function guessPOS(w){
  if(/(tion|sion|ment|ness|ity|ance|ence|ism|hood|ship|er|or)$/.test(w)) return "noun";
  return "noun";
 }
+function renderFallbackFrame(tpl,w){
+ const capitalized=w.charAt(0).toUpperCase()+w.slice(1);
+ return tpl.replaceAll("{Word}",capitalized).replaceAll("{word}",w);
+}
 function buildFallbackVocabData(w){
- const idx=[...w].reduce((h,c)=>h+c.charCodeAt(0),0)%fallbackExamplePool.length;
- const fallback=fallbackExamplePool[idx];
  const pos=guessPOS(w);
- return [pos,"a word selected from the passage; use the linked learner dictionaries to confirm its exact sense in context",fallbackKoreanGloss(w),fallback[0].replaceAll("{word}",w),fallback[1].replaceAll("{word}",w),"see dictionary links for exact synonyms","an exact antonym may not exist; check the sense in context"];
+ const family=fallbackFrameFamilies[pos]||fallbackFrameFamilies.noun;
+ const idx=[...w].reduce((h,c)=>h+c.charCodeAt(0),0)%family.length;
+ const frame=family[idx];
+ return [pos,"a word selected from the passage; use the linked learner dictionaries to confirm its exact sense in context",fallbackKoreanGloss(w),renderFallbackFrame(frame[0],w),renderFallbackFrame(frame[1],w),"see dictionary links for exact synonyms","an exact antonym may not exist; check the sense in context"];
 }
 // Fix (Risk C, QA-identified): a second analyze() call while one is already running could
 // reassign state.analysis out from under the first call's still-in-flight translation loop,
@@ -4110,18 +4129,14 @@ function highlightExampleWord(sentence,word){
  return sentence.replace(pattern,'<span class="example-word">$1</span>');
 }
 function examples(a){
- const used=new Set();
+ // Milestone 6 Task 3: both curated and fallback words now carry a final, word-deterministic
+ // example directly on data[3]/data[4] (curated: dictionary data; fallback: buildFallbackVocabData's
+ // POS-aware frame pick) -- so this function reads it as-is rather than re-selecting at render time.
+ // That keeps a word's example identical everywhere it's shown (Example tab, Vocabulary Card, Word
+ // Book), which is why the old flat-pool retry/de-dupe loop was removed rather than adapted: there is
+ // no longer a per-render pool to retry against.
  return a.vocab.slice(0,12).map((v,i)=>{
-   let ex=v.curated?[v.data[3],v.data[4]]:null;
-   if(!ex){
-     const base=fallbackExamplePool[i%fallbackExamplePool.length];
-     ex=[base[0].replaceAll("{word}",v.word),base[1].replaceAll("{word}",v.word)];
-   }
-   while(used.has(ex[0])){
-     if(v.curated) break;
-     const base=fallbackExamplePool[(i+used.size+1)%fallbackExamplePool.length];ex=[base[0].replaceAll("{word}",v.word),base[1].replaceAll("{word}",v.word)]
-   }
-   used.add(ex[0]);
+   const ex=[v.data[3],v.data[4]];
    const cleanEn=ex[0].replaceAll("“","").replaceAll("”","").replace(new RegExp(`"${v.word}"`,"gi"),v.word); return `<div class="card ${i%2?"c-mint":"c-yellow"}"><h3>${i+1}. ${escapeHtml(v.word)}</h3><div class="en" style="line-height:1.85">${highlightExampleWord(escapeHtml(cleanEn),v.word)}</div><div class="ko" style="margin-top:11px;line-height:1.85">(${escapeHtml(ex[1])})</div></div>`
  }).join("")
 }
