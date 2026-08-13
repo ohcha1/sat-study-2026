@@ -903,34 +903,6 @@ function findPhraseMatches(text,sents){
  });
  return results;
 }
-const exampleBank={
- significant:["The committee identified a significant gap in access to advanced courses.","위원회는 고급 과목에 대한 접근성에서 중요한 격차를 발견했다."],
- evidence:["The student cited archaeological evidence to challenge the older theory.","그 학생은 기존 이론에 이의를 제기하기 위해 고고학적 증거를 인용했다."],
- researchers:["Researchers tracked how quickly participants adapted to an unfamiliar task.","연구자들은 참가자들이 낯선 과제에 얼마나 빨리 적응하는지 추적했다."],
- traditional:["The architect preserved the traditional exterior while redesigning the interior.","그 건축가는 내부를 다시 설계하면서 전통적인 외관을 보존했다."],
- explanation:["Her explanation connected the unexpected result to a flaw in the original method.","그녀의 설명은 예상 밖의 결과를 기존 방법의 결함과 연결했다."],
- controversial:["The controversial proposal divided the council despite its potential benefits.","논란이 많은 그 제안은 잠재적 이점에도 불구하고 위원회를 갈라놓았다."],
- influence:["Peer expectations can influence whether students speak during a discussion.","또래의 기대는 학생들이 토론 중 발언할지에 영향을 줄 수 있다."],
- consequently:["The data set excluded rural schools; consequently, the conclusion was less generalizable.","자료에서 농촌 학교가 제외되었고, 그 결과 결론의 일반화 가능성이 낮아졌다."],
- cognitive:["Learning a second language may strengthen cognitive flexibility over time.","제2언어 학습은 시간이 지나면서 인지적 유연성을 강화할 수 있다."],
- demonstrate:["The experiment demonstrates that small design changes can alter behavior.","그 실험은 작은 설계 변화가 행동을 바꿀 수 있음을 보여 준다."],
- hypothesis:["The class revised its hypothesis after the second trial produced conflicting results.","수업에서는 두 번째 실험에서 상충되는 결과가 나오자 가설을 수정했다."],
- retain:["Students retain complex ideas more effectively when they explain them to others.","학생들은 복잡한 생각을 다른 사람에게 설명할 때 더 효과적으로 기억한다."],
- factor:["Access to reliable transportation was a decisive factor in attendance.","신뢰할 수 있는 교통수단에 대한 접근성이 출석에 결정적인 요인이었다."],
- contrast:["The author contrasts short-term convenience with long-term environmental cost.","저자는 단기적 편리함과 장기적 환경 비용을 대조한다."],
- account:["Differences in prior instruction may account for part of the performance gap.","이전 교육의 차이가 성취도 격차의 일부를 설명할 수 있다."],
- ambiguous:["The ambiguous wording caused two groups to interpret the rule differently.","모호한 표현 때문에 두 집단은 규칙을 다르게 해석했다."],
- corroborate:["Newly discovered letters corroborate the historian's account of the event.","새로 발견된 편지들은 그 사건에 대한 역사학자의 설명을 뒷받침한다."],
- mitigate:["Planting shade trees can mitigate extreme heat in densely built neighborhoods.","그늘나무를 심는 것은 밀집된 지역의 극심한 더위를 완화할 수 있다."],
- prevalent:["The belief remained prevalent even after new evidence emerged.","새로운 증거가 나온 뒤에도 그 믿음은 널리 퍼져 있었다."],
- nuanced:["The essay offers a nuanced account rather than a simple defense of either side.","그 에세이는 어느 한쪽을 단순히 옹호하기보다 미묘한 차이를 고려한 설명을 제시한다."],
- empirical:["The claim gained support only after empirical data became available.","그 주장은 실증 자료가 나온 뒤에야 지지를 얻었다."],
- plausible:["The explanation is plausible, but the available evidence does not yet prove it.","그 설명은 그럴듯하지만 현재 증거만으로는 아직 입증되지 않는다."],
- undermine:["A sampling error could undermine the study's broad conclusion.","표본 추출 오류는 그 연구의 광범위한 결론을 약화시킬 수 있다."],
- ubiquitous:["Digital notifications have become ubiquitous in many students' daily routines.","디지털 알림은 많은 학생의 일상에서 매우 흔해졌다."],
- infer:["Readers can infer the narrator's hesitation from several indirect details.","독자들은 몇 가지 간접적인 세부 사항을 통해 화자의 망설임을 추론할 수 있다."],
- substantiate:["The writer must substantiate the claim with data from a reliable source.","글쓴이는 신뢰할 수 있는 자료의 데이터로 주장을 입증해야 한다."]
-};
 const broadVocabLexicon={
  academic:["adjective","relating to schools, universities, or formal study rather than practical or social life","학업의, 학술적인","Her academic performance improved once she started reviewing notes every evening.","저녁마다 필기를 복습하기 시작한 뒤로 그녀의 학업 성적이 향상되었다.","scholastic, educational, scholarly","—"],
  accurately:["adverb","in a way that is correct and free from errors","정확하게","The witness described the accident accurately, matching the details recorded by the police.","목격자는 경찰이 기록한 세부 사항과 일치하도록 사고를 정확하게 설명했다.","precisely, correctly, exactly","inaccurately, incorrectly"],
@@ -4129,14 +4101,17 @@ function highlightExampleWord(sentence,word){
 function examples(a){
  const used=new Set();
  return a.vocab.slice(0,12).map((v,i)=>{
-   let ex=exampleBank[v.word];
+   let ex=v.curated?[v.data[3],v.data[4]]:null;
    if(!ex){
      const base=fallbackExamplePool[i%fallbackExamplePool.length];
      ex=[base[0].replaceAll("{word}",v.word),base[1].replaceAll("{word}",v.word)];
    }
-   while(used.has(ex[0])){const base=fallbackExamplePool[(i+used.size+1)%fallbackExamplePool.length];ex=[base[0].replaceAll("{word}",v.word),base[1].replaceAll("{word}",v.word)]}
+   while(used.has(ex[0])){
+     if(v.curated) break;
+     const base=fallbackExamplePool[(i+used.size+1)%fallbackExamplePool.length];ex=[base[0].replaceAll("{word}",v.word),base[1].replaceAll("{word}",v.word)]
+   }
    used.add(ex[0]);
-   const cleanEn=ex[0].replaceAll("“","").replaceAll("”","").replace(new RegExp(`"${v.word}"`,"gi"),v.word); return `<div class="card ${i%2?"c-mint":"c-yellow"}"><h3>${i+1}. ${v.word}</h3><div class="en" style="line-height:1.85">${highlightExampleWord(cleanEn,v.word)}</div><div class="ko" style="margin-top:11px;line-height:1.85">(${ex[1]})</div></div>`
+   const cleanEn=ex[0].replaceAll("“","").replaceAll("”","").replace(new RegExp(`"${v.word}"`,"gi"),v.word); return `<div class="card ${i%2?"c-mint":"c-yellow"}"><h3>${i+1}. ${escapeHtml(v.word)}</h3><div class="en" style="line-height:1.85">${highlightExampleWord(escapeHtml(cleanEn),v.word)}</div><div class="ko" style="margin-top:11px;line-height:1.85">(${escapeHtml(ex[1])})</div></div>`
  }).join("")
 }
 function esl(a){
