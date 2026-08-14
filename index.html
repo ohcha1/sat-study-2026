@@ -2474,6 +2474,41 @@ function buildLexicalPOSIndexOnce(){
 }
 function lexicalPOSLookup(w){ return buildLexicalPOSIndexOnce()[w]||null; }
 function resolveFallbackPOS(w){ return lexicalPOSLookup(w)||suffixPOS(w)||"unknown"; }
+// Milestone 6B Task 1 — synonym-only curated-example borrowing (02-QUALITY-ARCHITECTURE.md §3,
+// 05-QUALITY-ARCHITECTURE.md §3, CEO-approved). When an uncurated word is a listed SYNONYM of a
+// curated entry with the exact same clean POS, that entry's own real example is a safer, more natural
+// source than a generic frame -- reusing lexical data the app already has. Antonym relations are
+// explicitly excluded: Architecture testing showed antonym substitution can invert a sentence's
+// meaning (e.g. "prevent" substituted into an "induce" example reversed the causal direction), so only
+// entry[5] (synonyms) is searched here, never entry[6] (antonyms).
+function findSynonymBorrowSource(w,pos){
+ for(const lex of [dictionary,supplementalVocab,broadVocabLexicon]){
+  for(const key in lex){
+   const entry=lex[key];
+   if(entry[0]!==pos) continue; // exact clean POS match only -- no compound "noun/verb" sources
+   const synonymList=(entry[5]||"").split(",").map(s=>s.trim().toLowerCase());
+   if(!synonymList.includes(w)) continue; // synonym field only, never antonym
+   return {key,en:entry[3],ko:entry[4]};
+  }
+ }
+ return null;
+}
+// Verifies the source entry's own headword literally appears in its own example (true by the
+// existing authoring convention, checked defensively rather than assumed) before substituting, fixes
+// any a/an mismatch the substitution may introduce, and reuses the curated Korean translation as-is
+// (a real synonym at the same POS keeps that translation valid -- no word-for-word substitution is
+// needed on the Korean side, since it is a full translation, not an English-word-in-Korean-frame
+// template like the generic fallback frames are). Returns null (safe no-op) whenever the substitution
+// cannot be verified safe, so the caller falls through to the existing generic frame.
+function borrowSynonymExample(w,source){
+ const re=new RegExp("\\b"+source.key.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"\\b","i");
+ if(!re.test(source.en)) return null;
+ const capitalized=w.charAt(0).toUpperCase()+w.slice(1);
+ let en=source.en.replace(re,(m)=>(m[0]===m[0].toUpperCase()?capitalized:w));
+ const wantArticle=/^[aeiou]/i.test(w)?"an":"a";
+ en=en.replace(new RegExp("\\b(a|an)\\s+"+w+"\\b","i"),(m,art)=>(art.toLowerCase()===wantArticle?m:wantArticle+" "+w));
+ return [en,source.ko];
+}
 function renderFallbackFrame(tpl,w){
  const capitalized=w.charAt(0).toUpperCase()+w.slice(1);
  // Hot-fix (incidental, found live-testing the F-1/F-2 changes) — the adjective frame's hardcoded
@@ -2497,6 +2532,10 @@ function buildFallbackVocabData(w){
   const koTpl="이 단어({word})는 지문에 나온 단어입니다. 정확한 품사와 뜻은 학습 사전에서 확인한 뒤 문장에 사용하세요.";
   return [pos,meaning,fallbackKoreanGloss(w),renderFallbackFrame(enTpl,w),renderFallbackFrame(koTpl,w),synonyms,antonyms];
  }
+ // Milestone 6B Task 1 — try synonym-sourced borrowing before falling back to a generic frame.
+ const borrowSource=findSynonymBorrowSource(w,pos);
+ const borrowed=borrowSource?borrowSynonymExample(w,borrowSource):null;
+ if(borrowed) return [pos,meaning,fallbackKoreanGloss(w),borrowed[0],borrowed[1],synonyms,antonyms];
  const familyKey=pos==="adverb"?(isConnectiveAdverb(w)?"adverbConnective":"adverbManner"):pos;
  const family=fallbackFrameFamilies[familyKey];
  const idx=[...w].reduce((h,c)=>h+c.charCodeAt(0),0)%family.length;
