@@ -281,4 +281,135 @@ question.
 
 ---
 
-**STOP at QA gate. No push, no merge, no application-code changes made during this QA pass.**
+## 17. Addendum — Scoped Hot-Fix for F-1 (post-QA)
+
+Original F-1 reproduction and root cause (§14) are preserved above, unmodified. This section records
+the fix, applied on top of `c2f2949`.
+
+### 17.1 Fix
+
+`buildVocabCardData()`'s unsafe-morphology branch (Milestone 6 Task 4 — triggers for `-ed`/`-ing`
+surface forms whose curated base's POS is not the unqualified string `"verb"`) used to always generate
+via `fallbackFrameFamilies.adjective` directly and display the result, regardless of confidence. It now
+reuses the existing confidence-gate primitives instead of a second gate:
+
+1. Try `findSynonymBorrowSource(w, "adjective")` + `borrowSynonymExample()` — the same HIGH-confidence
+   mechanism `buildFallbackVocabData()` already uses (Milestone 6B Task 1).
+2. If that fails, withhold the example using the same `WITHHELD_EXAMPLE_EN`/`WITHHELD_EXAMPLE_KO`
+   constants and message as 6C — extracted into shared constants so both call sites use one source of
+   truth, not duplicated text.
+3. In both cases, `curated:true` and `data[0,1,2,5,6]` (POS/meaning/Korean meaning/synonyms/antonyms)
+   still come from the base — Task 4's original "never discard useful lexical data" principle is
+   unchanged.
+
+Added `isExampleWithheld(text)` — a read-time check against the fixed withheld-message string, not a
+new stored field or schema change — so any caller (QA scripts, future coverage tooling) can accurately
+tell whether `data[3]` is a real example or the withheld message, addressing the QA report's concern
+that `curated:true` alone was being used to mean "trusted" when it doesn't reliably imply that.
+
+### 17.2 `functioned` before/after
+
+- **Before:** `curated:true`, `data[3] = "The committee proposed a functioned solution to the ongoing
+  problem."` — not valid English.
+- **After:** `curated:true` (correctly unchanged — the word's lexical grounding in the real curated
+  entry "function" is genuine), `data[1,2,5,6]` unchanged (real meaning/Korean/synonyms/antonyms from
+  "function"), `data[3]` = the withheld message, `isExampleWithheld(data[3])` = `true`.
+
+### 17.3 Required test cases (A-I)
+
+| Case | Result |
+|---|---|
+| A. functioned | Fixed — withheld, no broken example |
+| B. witnessed | Withheld (previously the CONFUSING-but-displayed generic-frame result; now safely withheld) |
+| C. witnessing | Withheld (same) |
+| D. retained | Unchanged — safe path, base's real example reused verbatim |
+| E. retaining | Unchanged — safe path |
+| F. plural noun (witnesses) | Unchanged — safe `-s` path |
+| G. 3rd-person verb (corroborates) | Unchanged — safe path (unqualified verb base) |
+| H. safe past-tense verb (corroborated) | Unchanged — safe path |
+| I. safe -ing verb (retaining, corroborating-equivalent) | Unchanged — safe path |
+
+For every case: lexical fields (meaning, Korean, synonyms, antonyms) correct; POS badge coherent
+(reflects the base's real POS in all cases); example is either HIGH-confidence and natural, or safely
+withheld; no student-visible contradiction (a withheld card makes no claim about usage at all, so
+there's nothing to contradict the POS badge).
+
+### 17.4 Morphology adversarial test (20 additional forms)
+
+`influenced`, `influencing`, `contrasted`, `contrasting`, `disputed`, `disputing`, `transitioned`,
+`transitioning`, `accounted`, `accounting`, `factored`, `factoring`, `cautioned`, `cautioning`,
+`conflicts`, `controls` (4 more had no morphology base in this codebase and were not exercised).
+
+- **Displayed (5):** `disputed` (synonym-borrowed from `controversial` — *"The disputed proposal
+  divided the council despite its potential benefits."*), `accounted`/`accounting` (safe path, base
+  `account` is an unqualified verb), `conflicts`/`controls` (safe `-s` path). All EXCELLENT/GOOD, real
+  curated or borrowed content.
+- **Withheld (11):** `influenced`, `influencing`, `contrasted`, `contrasting`, `disputing`,
+  `transitioned`, `transitioning`, `factored`, `factoring`, `cautioned`, `cautioning` — all previously
+  would have generated via the ungated adjective frame; now uniformly withheld since no synonym-borrow
+  source exists for these specific surface forms.
+
+**Zero AWKWARD/BAD displayed. Target met.**
+
+### 17.5 Trusted-coverage recalculation
+
+Re-measured on the same 7-passage realistic set used throughout 6B/6C, with categories now properly
+separated (previously "curated" silently absorbed the unsafe-morphology-regenerated cases regardless of
+quality):
+
+| Category | Count | % of total |
+|---|---|---|
+| Exact curated | 63 | 78.8% |
+| Safe morphology reuse | 9 | 11.3% |
+| Synonym-borrowed (either path) | 0 (none in this specific 7-passage sample) | 0% |
+| Withheld — unsafe morphology (new category) | 2 | 2.5% |
+| Withheld — other (unknown/suffix-only POS) | 6 | 7.5% |
+| **Trusted total** (curated + safe morphology + borrowed) | **72** | **90.0%** |
+
+This is a more accurate number than any previously reported, because the 2 "withheld — unsafe
+morphology" cases would previously have been silently counted inside "curated" regardless of whether
+their generated example was actually good. The corrected trusted rate (90.0%) is close to — not lower
+than — the previous (inflated) figures, because the fix's main effect is *reclassifying* a small number
+of previously-mislabeled cases, not removing real trusted content.
+
+### 17.6 Curated flag / metadata result
+
+`curated:true` semantics are preserved exactly as before for every case except the specific unsafe-
+morphology-example-withheld case, where it now means precisely "this word has genuine curated lexical
+grounding" rather than implicitly also asserting "and its example is trustworthy" (which was never
+reliably true for this branch). No stored schema changed — `isExampleWithheld()` is a pure read-time
+function over existing text data. UI-visible behavior (the "사전 수록 단어" tag, Important-word
+filtering) is unchanged, since those already only ever read `curated`, not example content.
+
+### 17.7 LOW POS-badge finding disposition
+
+**Deferred, per explicit instruction not to let it distract from the HIGH fix.** Investigated whether a
+small, closed exception list (the same pattern used for `ATE_ADJECTIVES`) could cheaply fix `squander`/
+`pilfer`/`commandeer` being labeled `"noun"` via the `-er`/`-eer` agent-noun suffix pattern. Unlike the
+bounded `-ate`-adjective case (~18 safe exceptions), the `-er`-ending-verb category is much larger and
+less bounded (consider, deliver, discover, foster, wander, hover, suffer, differ, offer, whisper,
+gather, scatter, ...), so a safe exception list would need meaningfully more research and testing to
+build without risking new misclassifications — not a small, clearly-local fix. Logged to backlog
+(`08-MILESTONE-06-CLOSEOUT.md`).
+
+### 17.8 Regression
+
+Independently re-verified: 4 curated CEO words byte-identical; synonym borrowing (argue/vague/hesitant)
+unaffected; antonym rejection (`prevent`) still withheld, still no antonym-sourced borrowing anywhere;
+unknown-POS words still withheld; manner/connective adverb split unaffected (both test words withheld
+for unrelated, expected reasons — low confidence — not a regression); Word Book save + reconstruction
+verified live for `functioned` specifically (correct `curated:true`, correct POS badge, no broken
+example); `genVocabInContext()` re-invoked, still produces a correct question; IndexedDB still 6 stores;
+Gold Master checksum unchanged; XSS escaping unaffected. `git diff` on `index.html`: 2 hunks, both
+inside the exact functions this fix targets (`buildVocabCardData()`'s unsafe-morphology branch, and the
+`withheldFallbackExample()`/constants region immediately above it) — no unrelated changes.
+
+### 17.9 Status
+
+Commit: `fix: gate unsafe morphology examples`. Principal self-review performed (see
+`08-MILESTONE-06-CLOSEOUT.md`). No push, no merge.
+
+---
+
+**STOP at QA gate. No push, no merge, no application-code changes made during the original QA pass
+(§1-16); the hot-fix in §17 was a separate, explicitly-approved Development task.**
