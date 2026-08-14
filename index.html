@@ -2472,7 +2472,15 @@ function findContextSentence(word,passageText){
 //   2. lexicalPOSLookup()  — reuse of already-curated data (see below)
 //   4. suffixPOS()         — high-confidence suffix inference (unchanged rule table)
 //   5. "unknown"           — explicit, honest "we don't know" state; never silently becomes "noun"
+// Milestone 6B Task 5 — found while testing 20 fresh unseen words: "-ate" is not reliably a verb
+// suffix ("obstinate," "desolate," "fortunate" are adjectives, not verbs — English distinguishes them
+// by stress/pronunciation, invisible to a spelling-only rule). A small, closed exception list of
+// common "-ate" words that are *only* ever adjectives (never verbs, unlike genuinely ambiguous cases
+// such as "moderate"/"separate"/"elaborate," deliberately excluded here) — same bounded-list pattern
+// already used for CONNECTIVE_ADVERBS, not a new open-ended lexical system.
+const ATE_ADJECTIVES=new Set(["obstinate","desolate","considerate","fortunate","passionate","adequate","corporate","delicate","accurate","ornate","sedate","ultimate","intricate","affectionate","compassionate","proportionate","disproportionate","inanimate"]);
 function suffixPOS(w){
+ if(ATE_ADJECTIVES.has(w)) return "adjective";
  if(/ly$/.test(w)) return "adverb";
  if(/(ate|ify|ize|ise|en)$/.test(w)) return "verb";
  if(/(ive|ous|able|ible|al|ic|ful|less|ary)$/.test(w)) return "adjective";
