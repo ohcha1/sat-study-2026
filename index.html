@@ -2562,28 +2562,44 @@ function renderFallbackFrame(tpl,w){
  const article=/^[aeiou]/i.test(w)?"an":"a";
  return tpl.replaceAll("{Word}",capitalized).replaceAll("{a}",article).replaceAll("{word}",w);
 }
+// Milestone 6C — Safe Example Confidence Gate (06-IMPLEMENTATION-LOG.md). Classifies every fallback
+// example by the strength of the local evidence behind it, and withholds the example (never the other
+// fields) whenever that evidence is too weak to trust:
+//   HIGH   — exact curated example, safe morphology reuse, safe curated-synonym borrowing. Displayed.
+//   MEDIUM — POS backed by real curated lexical evidence (a synonym/antonym relationship to an actual
+//            curated entry), but no synonym example available to borrow -- i.e. exactly the old
+//            generic-frame-family path. Classified but NOT displayed: live testing this milestone
+//            found this path is not reliably safe even when the POS itself is well-evidenced (e.g.
+//            "completely" resolved via a real lexical vote yet still produced "Costs completely
+//            increased..." -- an awkward degree-adverb collocation the frame has no way to detect).
+//            Given the product principle that a missing example is acceptable but an unnatural one is
+//            not, MEDIUM is withheld rather than displayed until a more reliable per-word check exists.
+//   LOW    — POS is either fully unknown, or a spelling-only suffix guess with no corroborating
+//            lexical evidence. Withheld.
+// A withheld word still shows its other real fields (meaning placeholder, Korean gloss, synonyms/
+// antonyms) — only the fabricated example sentence is replaced with an honest, non-technical message.
+// fallbackFrameFamilies itself is NOT removed: buildVocabCardData()'s separate, unrelated unsafe-
+// morphology path (Milestone 6 Task 4 — e.g. "witnessed"/"witnessing") still legitimately uses
+// fallbackFrameFamilies.adjective directly and is explicitly preserved, unmodified, by this change.
+function withheldFallbackExample(w,pos,meaning,synonyms,antonyms){
+ const enTpl="This word's exact usage needs to be confirmed. Check the dictionary links for a real example.";
+ const koTpl="이 단어는 정확한 용례 확인이 필요합니다. 사전 링크에서 실제 예문을 확인해 보세요.";
+ return [pos,meaning,fallbackKoreanGloss(w),enTpl,koTpl,synonyms,antonyms];
+}
 function buildFallbackVocabData(w){
  const pos=resolveFallbackPOS(w);
  const meaning="a word selected from the passage; use the linked learner dictionaries to confirm its exact sense in context";
  const synonyms="see dictionary links for exact synonyms", antonyms="an exact antonym may not exist; check the sense in context";
- if(pos==="unknown"){
-  // Hot-fix (QA F-1 / unknown-POS strategy) — genuinely honest fallback: no grammatical role is
-  // claimed (unlike the old silent noun default), and it is not the banned meta-discussion pattern
-  // ("the class used the term...") either -- it's a direct, transparent study instruction, not a fake
-  // usage narrative. Per CEO instruction: better to clearly limit the fallback than teach wrong English.
-  const enTpl="This word ({word}) appears in the passage. Check a learner dictionary to confirm its exact part of speech and meaning before using it in a sentence of your own.";
-  const koTpl="이 단어({word})는 지문에 나온 단어입니다. 정확한 품사와 뜻은 학습 사전에서 확인한 뒤 문장에 사용하세요.";
-  return [pos,meaning,fallbackKoreanGloss(w),renderFallbackFrame(enTpl,w),renderFallbackFrame(koTpl,w),synonyms,antonyms];
- }
- // Milestone 6B Task 1 — try synonym-sourced borrowing before falling back to a generic frame.
+ if(pos==="unknown") return withheldFallbackExample(w,pos,meaning,synonyms,antonyms);
+ // Milestone 6B Task 1 — try synonym-sourced borrowing (HIGH confidence) before withholding.
  const borrowSource=findSynonymBorrowSource(w,pos);
  const borrowed=borrowSource?borrowSynonymExample(w,borrowSource):null;
  if(borrowed) return [pos,meaning,fallbackKoreanGloss(w),borrowed[0],borrowed[1],synonyms,antonyms];
- const familyKey=pos==="adverb"?(isConnectiveAdverb(w)?"adverbConnective":"adverbManner"):pos;
- const family=fallbackFrameFamilies[familyKey];
- const idx=[...w].reduce((h,c)=>h+c.charCodeAt(0),0)%family.length;
- const frame=family[idx];
- return [pos,meaning,fallbackKoreanGloss(w),renderFallbackFrame(frame[0],w),renderFallbackFrame(frame[1],w),synonyms,antonyms];
+ // Milestone 6C — everything else (MEDIUM: lexical-vote POS with no synonym example to borrow; LOW:
+ // suffix-only POS) is withheld. The POS badge still shows the resolved part of speech (still useful,
+ // still probably right) — only the example sentence, the part that can actively mislead if wrong, is
+ // withheld.
+ return withheldFallbackExample(w,pos,meaning,synonyms,antonyms);
 }
 // Fix (Risk C, QA-identified): a second analyze() call while one is already running could
 // reassign state.analysis out from under the first call's still-in-flight translation loop,
