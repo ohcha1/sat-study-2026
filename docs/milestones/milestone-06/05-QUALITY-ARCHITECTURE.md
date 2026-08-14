@@ -327,3 +327,12 @@ reuse.
 ---
 
 **STOP after Architecture. No application code was modified. No push, no merge.**
+
+## 14. Addendum — Development phase complete
+
+CEO approved this Architecture (decisions: synonym-only borrowing approved, antonym borrowing rejected,
+targeted curated expansion as primary lever, Gemini deferred). Tasks 1-5 executed on top of this
+Architecture; full results, before/after numbers, and the two newly-discovered residual failure
+categories (person/behavior-describing adjectives; scope/degree/certainty adverbs) are recorded in
+`docs/milestones/milestone-06/06-IMPLEMENTATION-LOG.md`. This document's own findings (§1-13) are left
+unmodified above — nothing here is superseded, only extended.
