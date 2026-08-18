@@ -1887,16 +1887,39 @@ const fallbackTemplatesByPOS={
   ["The committee's decision depended largely on this one {word}.","위원회의 결정은 대체로 이 한 가지 {word}에 좌우되었다."],
   ["Without a reliable {word}, the argument loses much of its force.","믿을 만한 {word}가 없다면 그 주장은 설득력을 많이 잃는다."],
   ["The researchers described the {word} in careful, measured terms.","연구자들은 그 {word}를 신중하고 절제된 표현으로 설명했다."]
+ ],
+ verbs3s:[
+  ["The report {word} a pattern that reviewers had not expected.","그 보고서는 검토자들이 예상하지 못했던 패턴을 {word}."],
+  ["This finding {word} why the earlier assumption was incomplete.","이 발견은 이전 가정이 왜 불완전했는지를 {word}."],
+  ["The graph clearly {word} how quickly conditions can change.","그 그래프는 상황이 얼마나 빨리 변할 수 있는지를 분명하게 {word}."],
+  ["Recent research {word} a connection between the two factors.","최근 연구는 두 요인 사이의 연관성을 {word}."],
+  ["The passage {word} a broader pattern within the field.","그 지문은 그 분야 안의 더 넓은 패턴을 {word}."]
  ]
 };
+// Common participial adjectives (verb-derived -ing/-ed forms that are actually used as
+// adjectives, e.g. "an interesting article," "an unsupported claim") that would otherwise be
+// mis-tagged as gerunds or past-tense verbs by the suffix rules below. Checked first, before
+// any suffix guess.
+const POS_ADJECTIVE_OVERRIDES=new Set(["interesting","exciting","boring","annoying","surprising",
+ "amazing","confusing","disappointing","embarrassing","frightening","fascinating","satisfying",
+ "convincing","promising","alarming","tempting","threatening","revealing","challenging",
+ "unsupported","limited","advanced","detailed","complicated","sophisticated","dedicated",
+ "qualified","concerned","renowned","distinguished","respected","established","documented",
+ "motivated","committed","skilled","talented","isolated","outdated","complicated","exhausted",
+ "unprecedented","widespread","accomplished"]);
 // Spelling-based POS guess for words absent from every dictionary. Not a real tagger — just
 // enough to route a word to a template pool that uses it in a plausible grammatical role
 // instead of always quoting it as a noun-like "term".
 function guessPOSForFallback(w){
  w=String(w||"").toLowerCase();
+ if(POS_ADJECTIVE_OVERRIDES.has(w)) return "adjective";
  if(/ly$/.test(w) && w.length>4) return "adverb";
  if(/ing$/.test(w) && w.length>5) return "verbing";
  if(/(ize|ise|ify|ate)$/.test(w)) return "verbbase";
+ // Present-tense, 3rd-person-singular verb forms (e.g. "illustrates," "organizes,"
+ // "clarifies") must be checked BEFORE the generic "ends in s -> plural noun" guess below,
+ // or a real verb like "illustrates" gets mis-tagged as a plural noun.
+ if(/(ates|izes|ises|ifies|ishes)$/.test(w)) return "verbs3s";
  if(/ed$/.test(w) && w.length>4) return "veried";
  if(/(tion|sion|ment|ness|ity|ance|ence|ism|ship)$/.test(w)) return "noun";
  if(/(ous|ive|ful|less|able|ible|ary|ent|ant|ical|ic)$/.test(w)) return "adjective";
@@ -1905,7 +1928,7 @@ function guessPOSForFallback(w){
 }
 function posLabelForFallback(cat){
  if(cat==="adverb") return "adverb (estimated)";
- if(cat==="verbing"||cat==="verbbase"||cat==="veried") return "verb (estimated)";
+ if(cat==="verbing"||cat==="verbbase"||cat==="veried"||cat==="verbs3s") return "verb (estimated)";
  if(cat==="adjective") return "adjective (estimated)";
  if(cat==="nounplural") return "noun, plural (estimated)";
  return "noun (estimated)";
