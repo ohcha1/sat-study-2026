@@ -4511,7 +4511,7 @@ async function renderReviewAsync(){
  const later=all.filter(v=>v.nextReviewAt&&new Date(v.nextReviewAt)>now);
  const known=all.filter(v=>v.status==="known").length;
 
- const dueCards=due.map(v=>`<div class="card word-card" id="rev_${escapeHtml(v.word)}">
+ const dueCards=due.map(v=>`<div class="card" id="rev_${escapeHtml(v.word)}">
   <div class="word">${escapeHtml(v.word)} <span class="small" style="color:#6B7280">(${v.kind==="phrase"?"숙어·구문":"단어"} · Box ${v.box||1})</span></div>
   <details><summary class="btn btn-light" style="display:inline-block">뜻 보기</summary>
    <div class="meaning-block" style="margin-top:8px"><b>한국어 뜻</b><div style="margin-top:6px">${escapeHtml(v.ko||"(저장된 뜻 없음)")}</div></div>
