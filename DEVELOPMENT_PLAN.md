@@ -99,6 +99,28 @@ project is meant to be worked on.
     explicit adjective-override list and a dedicated `verbs3s` category, checked before the
     generic "ends in s → plural noun" guess.
 
+- **Vocabulary dictionary breadth — first expansion pass.** Ran 5 diverse SAT-register test
+  passages (plate tectonics, minimum wage economics, Roman Empire, coral bleaching, printing
+  press) through the app to find real, non-demo coverage gaps rather than guessing. Found ~90
+  ordinary passage words with no `dictionary`/`supplementalVocab`/`broadVocabLexicon` entry.
+  Hand-wrote and added 30 new `broadVocabLexicon` entries for the highest general-value words
+  from that gap list (5 of the original 35 candidates turned out to already exist, so were
+  skipped to avoid duplicates): `multiplicity`, `overreach`, `redistribute`, `theoretical`,
+  `institution`, `intellectual`, `innovation`, `laborious`, `mortality`, `skepticism`, `prompt`,
+  `undergo`, `unify`, `tolerant`, `complicate`, `dismiss`, `reshape`, `occupy`, `invention`,
+  `identify`, `spread`, `selective`, `elite`, `address`, `formation`, `discovery`, `development`,
+  `narrow`, `symptom`, `manuscript` — each with full `[pos, definition, ko, exampleEN, exampleKO,
+  synonyms, antonyms]` content. Deliberately excluded proper nouns/domain-jargon (`Wegener`,
+  `Gutenberg's`, `tectonics`, `seafloor`) and overly-basic words (`together`, `finally`,
+  `roughly`) that wouldn't be a good use of a curated slot. Verified with a Playwright test that
+  all 30 words now resolve via `broadVocabLexicon` lookup with the correct 7-field shape, and
+  re-ran `smoke_test.js` with zero regressions.
+  - **Honest scope note:** this covers 30 of the ~90 words found in the gap analysis — a
+    meaningful dent, not a fix. The vocabulary-coverage bottleneck (item 4 below) is still the
+    main thing holding back vocab/examples/SAT-vocab-question quality on real passages and will
+    need further passes, ideally with a more systematic approach than one-at-a-time hand curation
+    (see item 4).
+
 ## Next priorities (roughly in order)
 
 1. **Manual word/phrase entry.** Right now the only way to add something to the review deck is
@@ -111,13 +133,15 @@ project is meant to be worked on.
 3. **"AI Explanation" honesty gap.** The explanation feature is currently template/heuristic
    based, not a real LLM call, despite the name. Either rename it to be honest about what it is,
    or wire it to a real model call if that's worth the cost/complexity for a personal tool.
-4. **Vocabulary dictionary coverage is still the main bottleneck (in progress).** ~1,115 words
-   across `dictionary`+`supplementalVocab`+`broadVocabLexicon` sounds like a lot, but real
-   passages still turn up ordinary words with no entry (8 of 12 in one real test passage), which
-   fall through to the generic "estimated" fallback for definition, Korean gloss, and example
-   sentence alike. This is the throughline behind most of the remaining thinness in vocab,
-   examples, and SAT vocabulary questions — worth tackling next, either by hand-expanding the
-   curated lists or by switching to a lookup approach (e.g. an API or a bundled larger wordlist).
+4. **Vocabulary dictionary coverage is still the main bottleneck.** ~1,145 words across
+   `dictionary`+`supplementalVocab`+`broadVocabLexicon` (after the first 30-word expansion pass
+   above) sounds like a lot, but real passages still turn up ordinary words with no entry (roughly
+   60 still missing out of the ~90-word gap list found during testing), which fall through to the
+   generic "estimated" fallback for definition, Korean gloss, and example sentence alike. This is
+   the throughline behind most of the remaining thinness in vocab, examples, and SAT vocabulary
+   questions. One-word-at-a-time hand curation works but is slow; worth considering either several
+   more focused expansion passes, or switching to a lookup approach (e.g. an API or a bundled
+   larger wordlist) if the manual pace doesn't keep up.
 5. **Deployment beyond `file://`.** This is a single HTML file with no build step, which is great
    for iterating, but it currently only runs opened locally. Worth deciding later whether/how to
    host it (even something as simple as static hosting) once the core loop is trustworthy.
