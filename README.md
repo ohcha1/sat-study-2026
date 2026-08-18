@@ -40,5 +40,6 @@ Everything else below supports that loop — none of it replaces it.
 
 See `CLAUDE.md` for how this repo is meant to be worked on, and `DEVELOPMENT_PLAN.md` for the
 current priority list. There is no multi-role process and no milestone-document pipeline — an
-earlier attempt at that is archived under `_archive/2026-08-legacy-process/` as a cautionary
-example, not a pattern to repeat.
+earlier attempt at that (and a separate multi-AI provider-router design detour) produced a lot of
+documentation and very little shipped feature work, so both were abandoned and removed from the
+repo. Not a pattern to repeat.

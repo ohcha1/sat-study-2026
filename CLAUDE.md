@@ -1,9 +1,9 @@
 # CLAUDE.md — Entry Point
 
 This is a solo personal project. There is no multi-role process, no approval gates, and no
-milestone-document pipeline — that was tried on the `multi-ai-v2-dev` branch and in
-`_archive/2026-08-legacy-process/`, and it produced a lot of documentation and very little
-shipped feature work, so it's retired. Don't recreate it.
+milestone-document pipeline — that was tried before (a heavy multi-agent process, plus a separate
+multi-AI provider-router design), and it produced a lot of documentation and very little shipped
+feature work, so both were abandoned and removed from the repo. Don't recreate them.
 
 ## What this app actually is
 

@@ -148,9 +148,18 @@ project is meant to be worked on.
 
 ## Explicitly not doing right now
 
-- Multi-AI router / provider-switching architecture (`docs/MULTI_AI_ARCHITECTURE_V2.md` in the
-  archive) — this was a design-only detour with no working code behind it. Not resurrecting it
-  unless a real, concrete need shows up.
+- Multi-AI router / provider-switching architecture — an earlier design-only detour with no
+  working code behind it. Not resurrecting it unless a real, concrete need shows up.
 - Splitting the single `index.html` into modules/a build step. The file is large, and that's a
   real cost, but restructuring it is a mechanical follow-up once the feature set stabilizes — not
   something to do while still actively changing what the app does.
+
+## Repo cleanup (2026-08-18)
+
+Consolidated everything onto `main` as the single branch to develop on. `clean-restart` and
+`multi-ai-v2-dev` are no longer needed — `main` now contains everything `clean-restart` had, and
+`multi-ai-v2-dev`'s only unique commits were the abandoned multi-AI router detour noted above.
+Also removed the legacy heavy-process artifacts (`_archive/2026-08-legacy-process/`: old
+PM/QA/architect docs, milestone templates, and a superseded `index.html` version from that
+process) from the repo entirely — they were cautionary history, not anything referenced by
+current code.
