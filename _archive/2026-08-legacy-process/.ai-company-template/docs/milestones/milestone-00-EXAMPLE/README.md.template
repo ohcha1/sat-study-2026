@@ -1,0 +1,26 @@
+# Milestone {{N}} — {{Title}}
+
+Mode: {{FULL | LIGHT}}
+
+Status: {{Not started | PM Spec drafted | Architecture drafted | In Development | In QA |
+In Review | Released | Blocked — <reason>}}
+
+## Documents
+
+FULL mode:
+1. [`01-PM-SPEC.md`](./01-PM-SPEC.md)
+2. [`02-ARCHITECTURE.md`](./02-ARCHITECTURE.md)
+3. [`03-IMPLEMENTATION-LOG.md`](./03-IMPLEMENTATION-LOG.md)
+4. [`04-QA-REPORT.md`](./04-QA-REPORT.md)
+5. [`05-REVIEW-REPORT.md`](./05-REVIEW-REPORT.md)
+6. [`06-RELEASE-NOTES.md`](./06-RELEASE-NOTES.md)
+
+LIGHT mode:
+1. `.ai-company/LIGHT_CONTEXT.md` (live, during the milestone) → archived here as
+   [`LIGHT_CONTEXT.md`](./LIGHT_CONTEXT.md) on completion
+2. [`03-IMPLEMENTATION-LOG.md`](./03-IMPLEMENTATION-LOG.md) (compact form)
+3. [`04-QA-REPORT.md`](./04-QA-REPORT.md) (compact form)
+4. [`06-RELEASE-NOTES.md`](./06-RELEASE-NOTES.md) (compact form)
+
+See `.ai-company/WORKFLOW.md` / `.ai-company/WORKFLOW-LIGHT.md` for what each document contains and
+which gate it feeds.

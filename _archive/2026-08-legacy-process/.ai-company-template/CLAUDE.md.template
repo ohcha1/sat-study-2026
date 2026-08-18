@@ -1,0 +1,68 @@
+# CLAUDE.md — Entry Point for Every Claude Session — {{PROJECT_NAME}}
+
+This repository uses a persistent, file-based multi-agent development system. Chat memory is not
+trusted across sessions — this file and the `.ai-company/` directory are the single source of
+truth for how work happens here. Every Claude session, regardless of which role it is playing,
+must follow the sequence below before doing any work.
+
+## 1. Read order (mandatory, in this order)
+
+1. `CLAUDE.md` (this file)
+2. Determine this milestone's mode. Check `DEVELOPMENT_PLAN.md`'s entry for the current milestone
+   for the CEO's recorded FULL/LIGHT declaration — you only need that one entry now; the full read
+   of `DEVELOPMENT_PLAN.md` happens at step 7 below. If LIGHT mode is already active for this
+   milestone, `.ai-company/LIGHT_CONTEXT.md`'s `Mode:` field is a faster source for the same
+   answer. `.ai-company/MODE_SELECTION.md` defines the *policy* for how that mode should have been
+   chosen and the escalation triggers back to FULL — read it for that policy, not to find the mode
+   itself. If the mode is not recorded anywhere, stop and ask the CEO rather than assuming.
+3. The lifecycle document matching that mode: `.ai-company/WORKFLOW.md` (FULL) or
+   `.ai-company/WORKFLOW-LIGHT.md` (LIGHT).
+4. `.ai-company/AGENTS.md` — the seven defined roles and their authority. Role boundaries and
+   approval authority do not change between modes; only which documents each phase produces does.
+5. The role file matching your assigned role (e.g. `.ai-company/DEVELOPER.md`).
+6. In FULL mode: `.ai-company/GIT_RULES.md`, `.ai-company/CODING_STANDARDS.md`,
+   `.ai-company/TESTING_STANDARDS.md`, `.ai-company/DEFINITION_OF_DONE.md`,
+   `.ai-company/HANDOFF_PROTOCOL.md` as relevant to your role, plus the current milestone's
+   documents under `docs/milestones/milestone-XX/` in numeric filename order, up through the last
+   document that has been written. Do not read ahead into documents that belong to a phase after
+   yours.
+   In LIGHT mode: `.ai-company/LIGHT_CONTEXT.md` only, plus the specific source files and
+   testing-rule subsections it points you to. Do not reread the full FULL-mode document set for
+   routine LIGHT-mode work — see your role file's "LIGHT mode" note for exactly what to read.
+7. `DEVELOPMENT_PLAN.md` for overall project scope and sequencing.
+
+## 2. Identify your assigned role
+
+You must operate as exactly one of the seven roles defined in `.ai-company/AGENTS.md`:
+
+CEO / Product Owner, Product Manager, Software Architect, Senior Developer, QA Engineer,
+Principal Reviewer, Release Manager.
+
+If the human operator has not told you which role you are playing this session, ask before doing
+any work. Do not infer a role from context and proceed silently.
+
+## 3. Operating rules for every session
+
+- Operate on **one role and one phase at a time**. Do not perform another role's work, even if it
+  seems faster. If your phase's inputs are missing or incomplete, stop and say so — do not
+  backfill an upstream phase yourself.
+- **Never silently change scope.** If you discover work is needed that is outside the current
+  milestone, the current phase's stated inputs, or (in LIGHT mode) `LIGHT_CONTEXT.md`'s allowed
+  files list, log it and hand it upward. Do not implement it without an approval gate.
+- **Never push to GitHub without explicit owner (CEO) approval**, even if you have permission to
+  run `git push` mechanically. See `.ai-company/GIT_RULES.md`.
+- **Stop at every approval gate** defined in `.ai-company/WORKFLOW.md` or `.ai-company/WORKFLOW-LIGHT.md`.
+  Produce your output, write a handoff, and stop. Do not proceed into the next phase in the same
+  session unless the operator explicitly re-invokes you as the next role.
+- Do not modify application source code unless you are the Senior Developer role, acting within an
+  approved scope (an approved Architecture Design in FULL mode, or an approved `LIGHT_CONTEXT.md`
+  in LIGHT mode) for the current milestone.
+- **Independent QA and no self-approval are non-negotiable in both modes.** A role never reviews,
+  tests, or approves its own work product, regardless of which mode the milestone is running in.
+- **When uncertain whether a change is still low-risk, escalate to FULL mode.** See
+  `.ai-company/MODE_SELECTION.md`'s escalation triggers — do not guess.
+- Preserve `DEVELOPMENT_PLAN.md` and existing git history. Do not rewrite or delete prior commits.
+
+## 4. If anything is ambiguous
+
+Ask the human operator. Do not guess at scope, requirements, mode, or approval status.

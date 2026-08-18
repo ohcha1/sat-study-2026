@@ -1,0 +1,14 @@
+# {{PROJECT_NAME}}
+
+{{PROJECT_DESCRIPTION}}
+
+## Features
+
+- {{FEATURE_1}}
+- {{FEATURE_2}}
+- {{FEATURE_3}}
+
+## AI Development Workflow
+
+This repository uses a persistent, file-based multi-agent workflow for development. Start at
+[`CLAUDE.md`](./CLAUDE.md) and [`.ai-company/MODE_SELECTION.md`](./.ai-company/MODE_SELECTION.md).

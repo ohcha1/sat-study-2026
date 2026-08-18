@@ -1,0 +1,37 @@
+# 06-RELEASE-NOTES.md — Milestone {{N}} — {{Title}}
+
+Used in both modes. Written by the Release Manager only after: FULL mode — `05-REVIEW-REPORT.md`
+shows Approved; LIGHT mode — `LIGHT_CONTEXT.md`'s handoff status shows CEO release approval.
+
+## What shipped (user-facing)
+
+{{plain-language summary of what changed for users}}
+
+## Technical changelog
+
+- {{commit hash}} — {{message}}
+- ...
+
+(Reference `03-IMPLEMENTATION-LOG.md` for full commit list.)
+
+## Definition of Done verification
+
+- [ ] Acceptance criteria pass
+- [ ] Regression tests pass
+- [ ] No unresolved Critical/High defects
+- [ ] Independent approval recorded (Principal Reviewer / CEO)
+- [ ] Documentation updated (`DEVELOPMENT_PLAN.md`, `README.md` if affected)
+- [ ] This document exists
+- [ ] CEO push approval recorded below
+
+## CEO push approval
+
+{{recorded decision, date}}
+
+## Push outcome
+
+{{success — commit range pushed to {{DEFAULT_BRANCH}} at {{REPOSITORY_URL}} | blocked — reason}}
+
+## Handoff
+
+<!-- See .ai-company/HANDOFF_PROTOCOL.md for the required fields. -->

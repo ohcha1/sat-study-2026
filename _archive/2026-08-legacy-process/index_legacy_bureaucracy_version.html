@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SAT English Learning Studio 2026 V6</title>
+<style>
+:root{
+  --navy:#16324F; --navy2:#1E3A5F; --blue:#DBEAFE; --sky:#E0F2FE;
+  --pink:#FCE7F3; --purple:#EDE9FE; --yellow:#FEF3C7; --mint:#ECFDF5;
+  --green:#D1FAE5; --bg:#F8FAFC; --line:#D8E0E8; --text:#111827;
+  --muted:#6B7280; --white:#FFFFFF; --danger:#B91C1C; --success:#0F766E;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Malgun Gothic",Arial,sans-serif}
+button,input,textarea,select{font:inherit}
+button{cursor:pointer}
+.app{min-height:100vh}
+header{background:linear-gradient(135deg,var(--navy),#244B70);color:white;padding:18px 26px;display:flex;align-items:center;justify-content:space-between;gap:16px;box-shadow:0 3px 14px rgba(22,50,79,.22)}
+.brand h1{font-size:22px;margin:0 0 4px;letter-spacing:.2px}.brand p{margin:0;opacity:.82;font-size:13px}
+.header-actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid transparent;border-radius:10px;padding:10px 14px;font-weight:700;transition:.15s}
+.btn:hover{transform:translateY(-1px)}
+.btn-primary{background:var(--navy);color:white}
+.btn-light{background:white;color:var(--navy)}
+.btn-soft{background:#EEF2F7;color:var(--navy);border-color:#D8E0E8}
+.btn-danger{background:#FEE2E2;color:#991B1B}
+main{padding:18px;max-width:1680px;margin:auto}
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.toolbar .spacer{flex:1}
+.status{font-size:13px;color:var(--muted)}
+.workspace{display:grid;grid-template-columns:minmax(320px,42%) minmax(460px,58%);gap:16px;align-items:start}
+.panel{background:white;border:1px solid var(--line);border-radius:16px;box-shadow:0 6px 20px rgba(15,23,42,.06);overflow:hidden}
+.panel-head{padding:14px 16px;background:#F3F4F6;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+.panel-head h2{font-size:16px;margin:0;color:var(--navy)}
+.panel-body{padding:16px}
+.field{margin-bottom:13px}.field label{display:block;font-weight:800;font-size:13px;margin-bottom:6px;color:#374151}
+.input,textarea,select{width:100%;border:1px solid #CBD5E1;border-radius:10px;background:white;padding:10px 12px;outline:none}
+.input:focus,textarea:focus,select:focus{border-color:#4F83B5;box-shadow:0 0 0 3px rgba(79,131,181,.15)}
+textarea{min-height:480px;resize:vertical;line-height:1.65}
+.settings-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.input-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;padding:12px 14px;border-bottom:1px solid var(--line);background:#F8FAFC}
+.tab{border:none;border-radius:9px;padding:8px 11px;background:#E5E7EB;color:#374151;font-weight:800;font-size:13px}
+.tab.active{background:var(--navy);color:white}
+.result{padding:16px;min-height:610px;max-height:760px;overflow:auto}
+.empty{height:560px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted)}
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px}
+.stat{border-radius:12px;padding:13px;border:1px solid rgba(0,0,0,.06)}
+.stat strong{font-size:22px;display:block;color:var(--navy)}.stat span{font-size:12px;color:#4B5563}
+.c-blue{background:var(--blue)}.c-pink{background:var(--pink)}.c-purple{background:var(--purple)}.c-yellow{background:var(--yellow)}.c-mint{background:var(--mint)}
+.card{border:1px solid var(--line);border-radius:13px;padding:14px;margin-bottom:12px;background:white}
+.card h3{font-size:15px;color:var(--navy);margin:0 0 10px}
+.bilingual{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.sentence{padding:10px 0;border-bottom:1px dashed #D1D5DB}.sentence:last-child{border-bottom:none}
+/* Milestone 2 Dev Task 8 — see docs/milestones/milestone-02/02-ARCHITECTURE.md §8's <style> block
+   row: ".sentence.loading" (skeleton/spinner treatment) and ".sentence.error" (warning-colored
+   variant + retry button styling), following the existing c-blue/c-pink/c-mint card-color
+   convention (reusing the --sky token already defined for the loading state's background and the
+   --danger token already defined in :root for the error state's accent, rather than introducing
+   new color values). translationRowTemplate (Dev Task 4) already emits class="sentence loading"
+   and class="sentence error" — this is a pure CSS addition, no JS/template change needed. */
+.sentence.loading{background:var(--sky);border-radius:9px;padding:12px 14px;margin:4px 0;border-bottom:none;animation:sentencePulse 1.4s ease-in-out infinite}
+.sentence.loading .ko{color:var(--navy2)}
+@keyframes sentencePulse{0%,100%{opacity:1}50%{opacity:.5}}
+.sentence.error{background:rgba(185,28,28,.06);border-left:3px solid var(--danger);border-radius:9px;padding:12px 14px;margin:4px 0;border-bottom:none}
+.sentence.error .ko{color:var(--danger);font-weight:700}
+.sentence.error .btn{margin-top:8px}
+.en{font-weight:650;line-height:1.55}.ko{color:#475569;line-height:1.55;margin-top:5px}
+.word-card{display:grid;grid-template-columns:110px 105px 1fr;gap:18px;align-items:start}
+.word-card>div:last-child{line-height:1.8}.word-card b{display:inline-block;margin-top:3px;margin-right:7px}.meaning-block{margin:10px 0 14px;padding:10px 12px;border-radius:9px;background:#F8FAFC}.meaning-block+.meaning-block{margin-top:14px}
+.level{display:inline-block;border-radius:999px;padding:4px 8px;font-size:11px;font-weight:900;text-align:center}
+.l9{background:var(--green)}.l10{background:var(--sky)}.l11{background:var(--yellow)}.l12{background:var(--pink)}
+.word{font-weight:900;color:var(--navy);font-size:18px}.pron-row{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:8px}.ipa{font-family:Georgia,"Times New Roman",serif;font-size:15px;color:#475569;font-weight:600}.speak-btn{border:1px solid #B8C7D8;background:#EFF6FF;color:#173B63;border-radius:999px;padding:6px 10px;font-size:12px;font-weight:900}.speak-btn:hover{background:#DBEAFE}.evaluation-strip{display:grid;grid-template-columns:150px 1fr;gap:12px;align-items:stretch;margin-top:14px}.evaluation-score{display:flex;align-items:center;justify-content:center;min-height:104px;border-radius:12px;background:#EDE9FE;border:1px solid #DDD6FE}.evaluation-notes{min-height:104px;border-radius:12px;background:#FFF7ED;border:1px solid #FED7AA;padding:12px 14px;line-height:1.75}.dialogue-line{padding:13px 15px!important;margin-bottom:11px!important;line-height:1.85}.dialogue-line .ko{margin-top:7px}
+.small{font-size:12px;color:var(--muted)}
+.example{background:#F8FAFC;border-left:4px solid #93C5FD;padding:9px 11px;margin-top:8px;border-radius:7px}
+.dialogue-line{padding:14px 15px;border-radius:10px;margin-bottom:13px;line-height:1.8}.a{background:var(--blue)}.b{background:var(--mint)}
+.phrase-card{line-height:1.95;padding:18px}.phrase-card h3{font-size:23px;line-height:1.35;margin-bottom:16px;color:var(--navy);letter-spacing:.1px}.phrase-card .meaning-block{background:rgba(255,255,255,.72);padding:13px 15px;margin:14px 0 18px}.phrase-label{font-size:14px;color:#475569;font-weight:800}.syn-ant{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:14px 0}.syn-ant>div{padding:11px 13px;border-radius:9px;line-height:1.65}.syn{background:#ECFDF5}.ant{background:#FFF1F2}.example-title{font-size:13px;font-weight:900;color:#334155;margin-bottom:7px}
+.grammar-sentence{font-size:17px;line-height:2;padding:13px 14px;background:#F8FAFC;border-radius:10px;margin-bottom:12px}
+.g-subject{background:#DBEAFE;border-bottom:2px solid #60A5FA;padding:1px 3px;border-radius:4px}.g-verb{color:#9F3A47;background:#FDECEF;border-bottom:2px solid #D9828E;padding:1px 3px;border-radius:4px;font-weight:850}.g-clause{background:#EDE9FE;border-bottom:2px solid #A78BFA;padding:1px 3px;border-radius:4px}.g-link{color:#8A3C47;background:#FCE7F3;padding:1px 4px;border-radius:4px;font-weight:800}.grammar-note{line-height:1.8;margin-top:10px}.important-note{color:#8A3C47;font-weight:800}.record-box{border:1px solid #C7D2FE;background:#F5F7FF;border-radius:13px;padding:15px;margin-top:16px}.record-controls{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.score-badge{display:inline-flex;align-items:center;justify-content:center;min-width:104px;padding:10px 15px;border-radius:999px;background:#EDE9FE;color:#4C1D95;font-size:20px;font-weight:950}.score-scale{margin-top:12px;padding:12px 14px;border-radius:10px;background:#fff;line-height:1.8;color:#475569}.sat-warning{font-size:12px;color:#64748B;margin-top:8px}.translation-loading{padding:12px;background:#EFF6FF;border-radius:10px;color:#1E3A5F;margin-bottom:12px}
+.question{border:1px solid var(--line);border-radius:13px;padding:15px;margin-bottom:14px}
+.choice{display:block;padding:9px 10px;margin:7px 0;border:1px solid #D1D5DB;border-radius:9px}
+.choice:hover{background:#F8FAFC}.correct{background:#DCFCE7!important;border-color:#86EFAC}.wrong{background:#FEE2E2!important;border-color:#FCA5A5}
+.explanation{display:none;background:#F8FAFC;border-radius:9px;padding:10px;margin-top:10px;color:#475569}
+.saved-drawer{position:fixed;inset:0 0 0 auto;width:min(480px,92vw);background:white;z-index:30;box-shadow:-10px 0 30px rgba(15,23,42,.25);transform:translateX(105%);transition:.25s;display:flex;flex-direction:column}
+.saved-drawer.open{transform:translateX(0)}
+.drawer-head{background:var(--navy);color:white;padding:16px;display:flex;justify-content:space-between;align-items:center}
+.drawer-body{padding:14px;overflow:auto}.saved-item{border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:10px}
+.saved-item h4{margin:0 0 5px;color:var(--navy)}.saved-meta{font-size:12px;color:var(--muted);margin-bottom:8px}
+.overlay{position:fixed;inset:0;background:rgba(15,23,42,.38);z-index:20;display:none}.overlay.show{display:block}
+.toast{position:fixed;bottom:22px;right:22px;background:var(--navy);color:white;padding:12px 16px;border-radius:10px;opacity:0;transform:translateY(15px);transition:.2s;z-index:50}.toast.show{opacity:1;transform:translateY(0)}
+footer{text-align:center;color:var(--muted);font-size:12px;padding:18px}
+@media(max-width:980px){.word-card{grid-template-columns:1fr}.evaluation-strip{grid-template-columns:1fr}.syn-ant{grid-template-columns:1fr}.workspace{grid-template-columns:1fr}.summary-grid{grid-template-columns:repeat(2,1fr)}textarea{min-height:330px}.result{max-height:none}.settings-grid{grid-template-columns:1fr}.bilingual{grid-template-columns:1fr}}
+@media print{header,.toolbar,.input-actions,.tabs,.saved-drawer,.overlay,footer{display:none!important}.workspace{display:block}.panel:first-child{display:none}.panel{box-shadow:none;border:none}.result{max-height:none}}
+</style>
+</head>
+<body>
+<div class="app">
+<header>
+  <div class="brand">
+    <h1>SAT English Learning Studio 2026</h1>
+    <p>Passage Analysis · Vocabulary · Grammar · ESL · SAT Practice</p>
+  </div>
+  <div class="header-actions">
+    <button class="btn btn-light" onclick="openSaved()">저장 자료</button>
+    <button class="btn btn-light" onclick="window.print()">인쇄 / PDF</button>
+  </div>
+</header>
+<main>
+  <div class="toolbar">
+    <button class="btn btn-soft" onclick="loadSample()">예제 지문 불러오기</button>
+    <button class="btn btn-soft" onclick="newPassage()">새 지문</button>
+    <span class="spacer"></span>
+    <span class="status" id="status">준비됨</span>
+  </div>
+  <section class="workspace">
+    <div class="panel">
+      <div class="panel-head"><h2>① 영어 지문 입력</h2><span class="small">왼쪽 입력 → 오른쪽 자동 분석</span></div>
+      <div class="panel-body">
+        <div class="field"><label>학습자료 제목</label><input id="title" class="input" placeholder="예: The Role of Sleep in Memory"></div>
+        <div class="settings-grid">
+          <div class="field"><label>학생 학년</label><select id="grade"><option>9학년</option><option>10학년</option><option selected>11학년</option><option>12학년</option></select></div>
+          <!-- TODO(Milestone 3 — Dictionary Upgrade): #difficulty is currently read nowhere in analyze()
+               or any render function; selecting it has no effect on output. It is intentionally left
+               as a visible-but-inert control for Milestone 1 (bug fixes only / no redesign). It should
+               become a real input to vocabulary leveling and question difficulty once the dictionary
+               upgrade lands. See DEVELOPMENT_PLAN.md, Milestone 3. -->
+          <div class="field"><label>분석 난이도</label><select id="difficulty"><option>기본</option><option selected>중급</option><option>고급</option></select></div>
+          <div class="field"><label>SAT 문제 수</label><select id="qcount"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option selected>6</option><option>7</option><option>8</option><option>9</option><option>10</option></select></div>
+        </div>
+        <div class="field"><label>영어 지문</label><textarea id="passage" placeholder="영어 지문을 여기에 붙여 넣으세요."></textarea></div>
+        <div class="input-actions">
+          <button class="btn btn-primary" id="analyzeBtn" onclick="analyze()">지문 분석하기</button>
+          <button class="btn btn-soft" onclick="saveCurrent()">학습자료 저장</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>② 자동 학습 분석</h2><span class="small" id="analysisTitle">아직 분석하지 않았습니다</span></div>
+      <div class="tabs">
+        <button class="tab active" data-tab="overview">요약</button>
+        <button class="tab" data-tab="translation">전체 해석</button>
+        <button class="tab" data-tab="vocab">학년별 단어</button>
+        <button class="tab" data-tab="examples">예문</button>
+        <button class="tab" data-tab="phrases">숙어·구문</button>
+        <button class="tab" data-tab="grammar">문법</button>
+        <button class="tab" data-tab="esl">ESL 회화</button>
+        <button class="tab" data-tab="sat">SAT 문제</button>
+      </div>
+      <div id="result" class="result"><div class="empty">지문을 입력하고 <b>지문 분석하기</b>를 누르세요.</div></div>
+    </div>
+  </section>
+</main>
+<footer>학습용 프로토타입 V6 · 번역·음성평가는 인터넷 및 브라우저 기능에 따라 달라질 수 있습니다.</footer>
+</div>
+<div class="overlay" id="overlay" onclick="closeSaved()"></div>
+<aside class="saved-drawer" id="drawer">
+  <div class="drawer-head"><b>저장된 학습자료</b><button class="btn btn-light" onclick="closeSaved()">닫기</button></div>
+  <div class="drawer-body">
+    <input id="searchSaved" class="input" placeholder="제목 또는 지문 검색" oninput="renderSaved()">
+    <div id="savedList" style="margin-top:12px"></div>
+  </div>
+</aside>
+<div class="toast" id="toast"></div>
+
+<script>
+const ipaMap={
+ cyclosporiasis:"/ˌsaɪkloʊspəˈraɪəsɪs/",administration:"/ədˌmɪnəˈstreɪʃən/",administrator:"/ədˈmɪnəstreɪtɚ/",
+ spokesperson:"/ˈspoʊkspɝːsən/",dehydration:"/ˌdiːhaɪˈdreɪʃən/",information:"/ˌɪnfɚˈmeɪʃən/",
+ identity:"/aɪˈdentəti/",identities:"/aɪˈdentətiz/",underlying:"/ˌʌndɚˈlaɪɪŋ/",impacted:"/ɪmˈpæktɪd/",
+ contracted:"/kənˈtræktɪd/",department:"/dɪˈpɑːrtmənt/",provided:"/prəˈvaɪdɪd/",conditions:"/kənˈdɪʃənz/",
+ release:"/rɪˈliːs/",according:"/əˈkɔːrdɪŋ/",
+
+ significant:"/sɪɡˈnɪfɪkənt/",evidence:"/ˈevɪdəns/",researchers:"/rɪˈsɝːtʃɚz/",traditional:"/trəˈdɪʃənəl/",
+ explanation:"/ˌekspləˈneɪʃən/",controversial:"/ˌkɑːntrəˈvɝːʃəl/",influence:"/ˈɪnfluəns/",consequently:"/ˈkɑːnsəkwentli/",
+ cognitive:"/ˈkɑːɡnətɪv/",demonstrate:"/ˈdemənstreɪt/",hypothesis:"/haɪˈpɑːθəsɪs/",retain:"/rɪˈteɪn/",
+ factor:"/ˈfæktɚ/",contrast:"/ˈkɑːntræst/",account:"/əˈkaʊnt/",ambiguous:"/æmˈbɪɡjuəs/",
+ corroborate:"/kəˈrɑːbəreɪt/",mitigate:"/ˈmɪtəɡeɪt/",prevalent:"/ˈprevələnt/",nuanced:"/ˈnuːɑːnst/",
+ empirical:"/ɪmˈpɪrɪkəl/",plausible:"/ˈplɔːzəbəl/",undermine:"/ˌʌndɚˈmaɪn/",ubiquitous:"/juːˈbɪkwətəs/",
+ infer:"/ɪnˈfɝː/",substantiate:"/səbˈstænʃieɪt/"
+};
+function speakAmerican(word){
+ if(!("speechSynthesis" in window)){toast("이 브라우저는 음성 재생을 지원하지 않습니다.");return}
+ speechSynthesis.cancel();
+ const u=new SpeechSynthesisUtterance(word);
+ u.lang="en-US";u.rate=.82;u.pitch=1;
+ const voices=speechSynthesis.getVoices();
+ const preferred=voices.find(v=>v.lang==="en-US"&&/Samantha|Alex|Google US English|Microsoft.*(Aria|Jenny|Guy)/i.test(v.name))
+   ||voices.find(v=>v.lang==="en-US")||voices.find(v=>v.lang.startsWith("en"));
+ if(preferred)u.voice=preferred;
+ speechSynthesis.speak(u);
+}
+
+const dictionary={
+ significant:["adjective","important or large enough to be noticed or to have an effect","중요한, 상당한, 의미 있는","The researchers found a significant difference between the two groups.","연구자들은 두 집단 사이에서 유의미한 차이를 발견했다.","important, substantial, notable","minor, negligible, insignificant"],
+ evidence:["noun","facts, observations, or information used to support a conclusion","증거, 근거","The student cited archaeological evidence to challenge the older theory.","그 학생은 기존 이론에 이의를 제기하기 위해 고고학적 증거를 인용했다.","proof, support, indication","speculation, assumption, conjecture"],
+ researchers:["noun","people who conduct systematic investigation to establish facts or reach new conclusions","연구자들","Researchers tracked how quickly participants adapted to an unfamiliar task.","연구자들은 참가자들이 낯선 과제에 얼마나 빨리 적응하는지 추적했다.","investigators, scholars, analysts","nonexperts, laypeople"],
+ traditional:["adjective","based on long-established customs, beliefs, or methods","전통적인, 관습적인","The architect preserved the traditional exterior while redesigning the interior.","그 건축가는 내부를 다시 설계하면서 전통적인 외관을 보존했다.","conventional, customary, established","innovative, unconventional, novel"],
+ explanation:["noun","a statement or account that makes an idea, cause, or process clear","설명, 해명","Her explanation connected the unexpected result to a flaw in the original method.","그녀의 설명은 예상 밖의 결과를 기존 방법의 결함과 연결했다.","account, clarification, interpretation","confusion, obscurity, mystery"],
+ controversial:["adjective","likely to produce public disagreement or opposing judgments","논란이 많은","The controversial proposal divided the council despite its potential benefits.","논란이 많은 그 제안은 잠재적 이점에도 불구하고 위원회를 갈라놓았다.","disputed, contentious, debatable","undisputed, accepted, uncontroversial"],
+ influence:["noun/verb","the capacity to affect a person, event, or outcome","영향, 영향을 주다","Peer expectations can influence whether students speak during a discussion.","또래의 기대는 학생들이 토론 중 발언할지에 영향을 줄 수 있다.","affect, shape, sway","leave unchanged, preserve"],
+ consequently:["adverb","as a direct result of what happened previously","그 결과, 따라서","The data set excluded rural schools; consequently, the conclusion was less generalizable.","자료에서 농촌 학교가 제외되었고, 그 결과 결론의 일반화 가능성이 낮아졌다.","therefore, thus, accordingly","nevertheless, however"],
+ cognitive:["adjective","related to thinking, reasoning, memory, and understanding","인지의, 사고 작용과 관련된","Learning a second language may strengthen cognitive flexibility over time.","제2언어 학습은 시간이 지나면서 인지적 유연성을 강화할 수 있다.","mental, intellectual, perceptual","physical, noncognitive"],
+ demonstrate:["verb","to show, prove, or make something evident through reasoning or evidence","보여 주다, 입증하다","The experiment demonstrates that small design changes can alter behavior.","그 실험은 작은 설계 변화가 행동을 바꿀 수 있음을 보여 준다.","show, establish, illustrate","conceal, disprove, obscure"],
+ hypothesis:["noun","a proposed explanation that can be tested through evidence or experiment","가설","The class revised its hypothesis after the second trial produced conflicting results.","수업에서는 두 번째 실험에서 상충되는 결과가 나오자 가설을 수정했다.","theory, proposition, supposition","certainty, proven fact"],
+ retain:["verb","to keep, preserve, or continue to remember something","유지하다, 보유하다, 기억하다","Students retain complex ideas more effectively when they explain them to others.","학생들은 복잡한 생각을 다른 사람에게 설명할 때 더 효과적으로 기억한다.","preserve, maintain, remember","lose, discard, forget"],
+ factor:["noun","a circumstance or element that contributes to a result","요인, 요소","Access to reliable transportation was a decisive factor in attendance.","신뢰할 수 있는 교통수단에 대한 접근성이 출석에 결정적인 요인이었다.","element, cause, consideration","irrelevance, nonfactor"],
+ contrast:["noun/verb","a marked difference between two things placed together","대조, 차이, 대조하다","The author contrasts short-term convenience with long-term environmental cost.","저자는 단기적 편리함과 장기적 환경 비용을 대조한다.","difference, distinction, divergence","similarity, resemblance, agreement"],
+ account:["verb","to explain the cause of something or constitute a particular portion","설명하다, 차지하다","Differences in prior instruction may account for part of the performance gap.","이전 교육의 차이가 성취도 격차의 일부를 설명할 수 있다.","explain, constitute, justify","confuse, obscure"],
+ ambiguous:["adjective","open to more than one interpretation and therefore unclear","모호한, 여러 의미로 해석될 수 있는","The ambiguous wording caused two groups to interpret the rule differently.","모호한 표현 때문에 두 집단은 규칙을 다르게 해석했다.","unclear, equivocal, vague","explicit, definite, unambiguous"],
+ corroborate:["verb","to strengthen or confirm a statement by providing additional evidence","추가 증거로 입증하다, 확증하다","Newly discovered letters corroborate the historian's account of the event.","새로 발견된 편지들은 그 사건에 대한 역사학자의 설명을 뒷받침한다.","confirm, verify, substantiate","contradict, refute, undermine"],
+ mitigate:["verb","to make a harmful condition or effect less severe","완화하다, 경감하다","Planting shade trees can mitigate extreme heat in densely built neighborhoods.","그늘나무를 심는 것은 밀집된 지역의 극심한 더위를 완화할 수 있다.","alleviate, reduce, moderate","intensify, aggravate, worsen"],
+ prevalent:["adjective","widespread or commonly occurring in a particular place or period","널리 퍼진, 흔한","The belief remained prevalent even after new evidence emerged.","새로운 증거가 나온 뒤에도 그 믿음은 널리 퍼져 있었다.","widespread, common, pervasive","rare, uncommon, isolated"],
+ nuanced:["adjective","showing subtle distinctions or careful attention to complexity","미묘한 차이를 고려한, 섬세한","The essay offers a nuanced account rather than a simple defense of either side.","그 에세이는 어느 한쪽을 단순히 옹호하기보다 미묘한 차이를 고려한 설명을 제시한다.","subtle, refined, sophisticated","simplistic, crude, one-sided"],
+ empirical:["adjective","based on observation, experience, or experiment rather than theory alone","경험적·실증적인","The claim gained support only after empirical data became available.","그 주장은 실증 자료가 나온 뒤에야 지지를 얻었다.","observational, experimental, evidence-based","theoretical, speculative"],
+ plausible:["adjective","seeming reasonable or likely to be true","그럴듯한, 타당해 보이는","The explanation is plausible, but the available evidence does not yet prove it.","그 설명은 그럴듯하지만 현재 증거만으로는 아직 입증되지 않는다.","credible, reasonable, believable","implausible, unlikely, absurd"],
+ undermine:["verb","to weaken the force, credibility, or effectiveness of something","약화시키다, 신뢰를 떨어뜨리다","A sampling error could undermine the study's broad conclusion.","표본 추출 오류는 그 연구의 광범위한 결론을 약화시킬 수 있다.","weaken, erode, impair","strengthen, reinforce, bolster"],
+ ubiquitous:["adjective","present or appearing everywhere","어디에나 존재하는, 아주 흔한","Smartphones have become ubiquitous in many students' daily routines.","스마트폰은 많은 학생의 일상에서 어디에나 존재하는 도구가 되었다.","omnipresent, pervasive, universal","scarce, limited, rare"],
+ infer:["verb","to reach a conclusion based on evidence and reasoning","추론하다","Readers can infer the narrator's hesitation from several indirect details.","독자들은 몇 가지 간접적인 세부 사항을 통해 화자의 망설임을 추론할 수 있다.","deduce, conclude, reason","misinterpret, overlook"],
+ substantiate:["verb","to support a claim with evidence or proof","입증하다, 근거를 대다","The writer must substantiate the claim with data from a reliable source.","글쓴이는 신뢰할 수 있는 자료의 데이터로 주장을 입증해야 한다.","support, verify, corroborate","refute, disprove, invalidate"],
+ cyclosporiasis:["noun","an intestinal illness caused by the microscopic parasite Cyclospora cayetanensis","사이클로스포라 원충에 의해 발생하는 장 감염증, 사이클로스포라증","Public-health officials investigated a cluster of cyclosporiasis cases linked to contaminated produce.","보건 당국은 오염된 농산물과 관련된 사이클로스포라증 집단 발생을 조사했다.","Cyclospora infection, parasitic intestinal illness","health, absence of infection"],
+ administration:["noun","the management of an organization, institution, or public affairs; also the officials who manage it","행정, 관리, 운영; 행정부 또는 경영진","The school administration revised the attendance policy after consulting teachers and families.","학교 행정부는 교사와 가정의 의견을 들은 뒤 출석 규정을 개정했다.","management, governance, leadership","mismanagement, disorder"],
+ administrator:["noun","a person responsible for managing an organization, program, or system","관리자, 행정 담당자, 운영 책임자","The district administrator explained how the new policy would affect course registration.","교육구 행정 담당자는 새 정책이 수강 신청에 어떤 영향을 미칠지 설명했다.","manager, director, executive","subordinate, participant"],
+ spokesperson:["noun","a person who speaks officially on behalf of a group or organization","대변인, 공식 발언자","A department spokesperson confirmed that the investigation was still underway.","부서 대변인은 조사가 여전히 진행 중이라고 확인했다.","representative, press officer, mouthpiece","private citizen, unofficial source"],
+ dehydration:["noun","a harmful loss of water from the body","탈수, 체내 수분 부족","Severe dehydration can require immediate medical treatment.","심한 탈수는 즉각적인 치료가 필요할 수 있다.","fluid loss, desiccation","hydration, rehydration"],
+ information:["noun","facts or details learned, communicated, or obtained about a person, event, or subject","정보, 자료, 지식, 알림 내용","The report includes information about symptoms, treatment, and prevention.","그 보고서에는 증상, 치료, 예방에 관한 정보가 포함되어 있다.","data, facts, details","misinformation, ignorance"],
+ identity:["noun","the fact of being who or what a person or thing is","신원, 정체, 동일성","The agency did not release the patient's identity.","기관은 환자의 신원을 공개하지 않았다.","name, individuality, identification","anonymity, uncertainty"],
+ identities:["noun","the names or identifying characteristics of two or more people","여러 사람의 신원 또는 정체","Officials protected the identities of the individuals involved.","당국은 관련자들의 신원을 보호했다.","names, identifications, individualities","anonymity, concealment"],
+ underlying:["adjective","basic, hidden, or fundamental; present beneath the surface or contributing to a condition","근본적인, 기저의, 이면에 있는","Doctors considered whether an underlying condition increased the patient's risk.","의사들은 기저 질환이 환자의 위험을 높였는지 검토했다.","fundamental, root, latent","surface, obvious, secondary"],
+ impacted:["verb/adjective","affected or influenced, often in a significant way","영향을 받은, 영향을 미친","The closure impacted students who depended on the evening bus route.","폐쇄 조치는 저녁 버스 노선에 의존하던 학생들에게 영향을 미쳤다.","affected, influenced, altered","unaffected, untouched"],
+ contracted:["verb","became infected with a disease","질병에 감염되었다, 병에 걸렸다","Several travelers contracted the illness during the same week.","여러 여행자가 같은 주에 그 질병에 감염되었다.","caught, acquired, became infected with","avoided, escaped"],
+ department:["noun","a division of a large organization responsible for a particular area of work","부서, 학과, 관할 기관","The health department issued updated guidance on food safety.","보건부는 식품 안전에 관한 최신 지침을 발표했다.","division, section, branch","whole, entirety"],
+ provided:["verb","gave, supplied, or made something available","제공했다, 마련했다","The report provided additional evidence for the proposed explanation.","그 보고서는 제안된 설명을 뒷받침하는 추가 증거를 제공했다.","supplied, furnished, offered","withheld, deprived"],
+ conditions:["noun","states of health, circumstances, or requirements that affect a situation","상태, 질환, 조건, 상황","The study excluded participants with certain medical conditions.","그 연구는 특정 질환이 있는 참가자를 제외했다.","circumstances, disorders, requirements","certainty, normality"],
+ release:["noun","an official statement made available to the public or news media","보도자료, 공식 발표문; 공개","The agency explained the decision in a news release.","기관은 보도자료를 통해 그 결정을 설명했다.","announcement, statement, bulletin","suppression, withholding"],
+ according:["preposition phrase element","used in the phrase 'according to' to identify the source of information","‘according to’에서 정보의 출처를 나타내는 말: ~에 따르면","According to the report, the number of cases declined in July.","보고서에 따르면 7월에는 사례 수가 감소했다.","as stated by, on the authority of","contrary to"],
+};
+const phraseBank=[
+ ["account for","to explain the cause of something or represent a portion of it","설명하다 / 차지하다"],
+ ["in contrast","used to introduce an idea that is different from the previous one","반대로 / 대조적으로"],
+ ["as a result","used to introduce a consequence","그 결과"],
+ ["be likely to","to have a strong probability of happening","~할 가능성이 있다"],
+ ["play a role in","to contribute to a result or process","~에 역할을 하다"],
+ ["not only A but also B","used to add a second important idea to the first","A뿐 아니라 B도"],
+ ["be associated with","to be connected with something","~와 관련이 있다"],
+ ["lead to","to cause or produce a result","~로 이어지다"],
+ ["result in","to cause a particular outcome","~라는 결과를 낳다"],
+ ["depend on","to be determined or influenced by something","~에 달려 있다"],
+ ["contribute to","to help cause or develop something","~에 기여하다"],
+ ["rather than","used to prefer or contrast one thing with another","~라기보다 / ~대신에"],
+ ["according to","as stated or reported by a source","~에 따르면"],
+ ["in response to","as a reaction to something","~에 대응하여"],
+ ["with respect to","concerning or in relation to","~에 관하여"],
+ ["in addition to","besides or together with","~에 더하여"],
+ ["by contrast","used to emphasize a difference","그와 대조적으로"],
+ ["for instance","used to introduce an example","예를 들어"],
+ ["in other words","used to restate an idea more clearly","다시 말해"],
+ ["to some extent","partly but not completely","어느 정도"],
+ ["be capable of","to have the ability to do something","~할 능력이 있다"],
+ ["be consistent with","to agree with evidence or an idea","~와 일치하다"],
+ ["raise questions about","to create doubt or invite further investigation","~에 의문을 제기하다"],
+ ["provide evidence for","to give support for a claim","~에 대한 증거를 제공하다"],
+ ["draw a conclusion","to form a judgment from evidence","결론을 내리다"],
+ ["take into account","to consider something when making a judgment","~을 고려하다"],
+ ["have an effect on","to influence something","~에 영향을 미치다"],
+ ["be based on","to use something as a foundation","~에 근거하다"],
+ ["focus on","to direct attention toward something","~에 초점을 맞추다"],
+ ["distinguish between","to recognize the difference between two things","~을 구별하다"],
+ ["be attributed to","to be explained as caused by something","~의 탓으로 돌리다 / ~에 기인하다"],
+ ["on the other hand","used to present a contrasting perspective","다른 한편으로는"],
+ ["in particular","especially or specifically","특히"],
+ ["as opposed to","in contrast with","~와 대조적으로"],
+ ["regardless of","without being affected by something","~에 관계없이"],
+ ["in terms of","with regard to a particular aspect","~의 측면에서"]
+];
+const exampleBank={
+ significant:["The committee identified a significant gap in access to advanced courses.","위원회는 고급 과목에 대한 접근성에서 중요한 격차를 발견했다."],
+ evidence:["The student cited archaeological evidence to challenge the older theory.","그 학생은 기존 이론에 이의를 제기하기 위해 고고학적 증거를 인용했다."],
+ researchers:["Researchers tracked how quickly participants adapted to an unfamiliar task.","연구자들은 참가자들이 낯선 과제에 얼마나 빨리 적응하는지 추적했다."],
+ traditional:["The architect preserved the traditional exterior while redesigning the interior.","그 건축가는 내부를 다시 설계하면서 전통적인 외관을 보존했다."],
+ explanation:["Her explanation connected the unexpected result to a flaw in the original method.","그녀의 설명은 예상 밖의 결과를 기존 방법의 결함과 연결했다."],
+ controversial:["The controversial proposal divided the council despite its potential benefits.","논란이 많은 그 제안은 잠재적 이점에도 불구하고 위원회를 갈라놓았다."],
+ influence:["Peer expectations can influence whether students speak during a discussion.","또래의 기대는 학생들이 토론 중 발언할지에 영향을 줄 수 있다."],
+ consequently:["The data set excluded rural schools; consequently, the conclusion was less generalizable.","자료에서 농촌 학교가 제외되었고, 그 결과 결론의 일반화 가능성이 낮아졌다."],
+ cognitive:["Learning a second language may strengthen cognitive flexibility over time.","제2언어 학습은 시간이 지나면서 인지적 유연성을 강화할 수 있다."],
+ demonstrate:["The experiment demonstrates that small design changes can alter behavior.","그 실험은 작은 설계 변화가 행동을 바꿀 수 있음을 보여 준다."],
+ hypothesis:["The class revised its hypothesis after the second trial produced conflicting results.","수업에서는 두 번째 실험에서 상충되는 결과가 나오자 가설을 수정했다."],
+ retain:["Students retain complex ideas more effectively when they explain them to others.","학생들은 복잡한 생각을 다른 사람에게 설명할 때 더 효과적으로 기억한다."],
+ factor:["Access to reliable transportation was a decisive factor in attendance.","신뢰할 수 있는 교통수단에 대한 접근성이 출석에 결정적인 요인이었다."],
+ contrast:["The author contrasts short-term convenience with long-term environmental cost.","저자는 단기적 편리함과 장기적 환경 비용을 대조한다."],
+ account:["Differences in prior instruction may account for part of the performance gap.","이전 교육의 차이가 성취도 격차의 일부를 설명할 수 있다."],
+ ambiguous:["The ambiguous wording caused two groups to interpret the rule differently.","모호한 표현 때문에 두 집단은 규칙을 다르게 해석했다."],
+ corroborate:["Newly discovered letters corroborate the historian's account of the event.","새로 발견된 편지들은 그 사건에 대한 역사학자의 설명을 뒷받침한다."],
+ mitigate:["Planting shade trees can mitigate extreme heat in densely built neighborhoods.","그늘나무를 심는 것은 밀집된 지역의 극심한 더위를 완화할 수 있다."],
+ prevalent:["The belief remained prevalent even after new evidence emerged.","새로운 증거가 나온 뒤에도 그 믿음은 널리 퍼져 있었다."],
+ nuanced:["The essay offers a nuanced account rather than a simple defense of either side.","그 에세이는 어느 한쪽을 단순히 옹호하기보다 미묘한 차이를 고려한 설명을 제시한다."],
+ empirical:["The claim gained support only after empirical data became available.","그 주장은 실증 자료가 나온 뒤에야 지지를 얻었다."],
+ plausible:["The explanation is plausible, but the available evidence does not yet prove it.","그 설명은 그럴듯하지만 현재 증거만으로는 아직 입증되지 않는다."],
+ undermine:["A sampling error could undermine the study's broad conclusion.","표본 추출 오류는 그 연구의 광범위한 결론을 약화시킬 수 있다."],
+ ubiquitous:["Digital notifications have become ubiquitous in many students' daily routines.","디지털 알림은 많은 학생의 일상에서 매우 흔해졌다."],
+ infer:["Readers can infer the narrator's hesitation from several indirect details.","독자들은 몇 가지 간접적인 세부 사항을 통해 화자의 망설임을 추론할 수 있다."],
+ substantiate:["The writer must substantiate the claim with data from a reliable source.","글쓴이는 신뢰할 수 있는 자료의 데이터로 주장을 입증해야 한다."]
+};
+const fallbackExamplePool=[
+ ["During the laboratory review, the class used the term “{word}” to describe a pattern that had not been obvious at first.","실험 검토 시간에 학생들은 처음에는 분명하지 않았던 양상을 설명하기 위해 “{word}”라는 단어를 사용했다."],
+ ["The editorial board selected “{word}” because it expressed the writer's point more precisely than a simpler alternative.","편집부는 “{word}”가 더 쉬운 대안보다 글쓴이의 요점을 정확히 표현한다고 판단해 선택했다."],
+ ["In her history presentation, Mina explained how “{word}” shaped the public response to the reform.","미나는 역사 발표에서 “{word}”가 개혁에 대한 대중의 반응을 어떻게 형성했는지 설명했다."],
+ ["The science club debated whether “{word}” accurately described the evidence collected during the field study.","과학 동아리는 “{word}”가 현장 조사에서 수집한 증거를 정확히 설명하는지 토론했다."],
+ ["A careful reader should determine how “{word}” changes the tone of the paragraph before selecting an answer.","신중한 독자는 답을 고르기 전에 “{word}”가 문단의 어조를 어떻게 바꾸는지 판단해야 한다."],
+ ["The principal asked the student council to define “{word}” and apply it to a realistic school policy.","교장은 학생회에 “{word}”를 정의하고 실제적인 학교 정책에 적용해 보라고 요청했다."],
+ ["By comparing two sources, the class discovered that “{word}” carried a more specific meaning in the second text.","두 자료를 비교하면서 학생들은 “{word}”가 두 번째 글에서 더 구체적인 의미를 가진다는 것을 발견했다."],
+ ["The debate coach encouraged students to use “{word}” only when the available evidence truly justified it.","토론 코치는 이용 가능한 증거가 실제로 뒷받침할 때만 “{word}”를 사용하라고 학생들에게 조언했다."],
+ ["In the final revision, the author replaced a vague phrase with “{word}” to make the argument more exact.","최종 수정에서 저자는 주장을 더 정확하게 만들기 위해 모호한 표현을 “{word}”로 바꾸었다."],
+ ["The research team discussed whether “{word}” was the best term for interpreting the unexpected result.","연구팀은 예상 밖의 결과를 해석하는 데 “{word}”가 가장 적절한 단어인지 논의했다."],
+ ["The literature class examined how “{word}” contributed to the narrator's changing perspective.","문학 수업에서는 “{word}”가 화자의 변화하는 관점에 어떻게 기여했는지 살펴보았다."],
+ ["For homework, students wrote a new sentence in which “{word}” was essential to the meaning rather than decorative.","학생들은 숙제로 “{word}”가 장식적 표현이 아니라 의미에 꼭 필요한 새 문장을 작성했다."]
+];
+let mediaRecorder=null, recordedChunks=[], recordedUrl=null, speechTranscript="", speechRecognition=null, recordingStartedAt=0, recordingDuration=0, audioContext=null, analyser=null, metricTimer=null, audioMetrics={frames:0,voiced:0,sumRms:0,sumSqRms:0,peak:0};
+const state={analysis:null,active:"overview"};
+// Milestone 2 (Translation Reliability) scaffolding — see docs/milestones/milestone-02/02-ARCHITECTURE.md §2-§4.
+const CONCURRENCY_LIMIT=3, REQUEST_TIMEOUT_MS=8000, RETRY_BACKOFF_MS=800;
+const translationCache=new Map();
+// Milestone 2 Dev Task 3 — see docs/milestones/milestone-02/02-ARCHITECTURE.md §6. Ordered list of
+// keyless, CORS-friendly Lingva Translate mirrors (never a single instance, per §6's requirement
+// that a single mirror's outage must not take down the whole fallback tier).
+const LINGVA_INSTANCES=["translate.plausibility.cloud","lingva.garudalinux.org"];
+function fetchWithTimeout(url,ms){
+ const controller=new AbortController();
+ const timer=setTimeout(()=>controller.abort(),ms);
+ return fetch(url,{signal:controller.signal}).finally(()=>clearTimeout(timer));
+}
+async function runWithConcurrency(items,limit,worker){
+ let cursor=0;
+ const results=new Array(items.length);
+ async function run(){
+  while(cursor<items.length){
+   const i=cursor++;
+   results[i]=await worker(items[i],i);
+  }
+ }
+ await Promise.all(Array.from({length:Math.min(limit,items.length)},run));
+ return results;
+}
+
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{
+ document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+ b.classList.add("active"); state.active=b.dataset.tab; render();
+}));
+
+function splitSentences(t){return (t.match(/[^.!?]+[.!?]+|[^.!?]+$/g)||[]).map(x=>x.trim()).filter(Boolean)}
+function words(t){return (t.toLowerCase().match(/[a-z]+(?:'[a-z]+)?/g)||[])}
+// Milestone 2 Dev Task 2 — see docs/milestones/milestone-02/02-ARCHITECTURE.md §6/§8 row 2.
+// Returns a structured {ko, matched} result instead of a bare string, so a caller can make an
+// explicit status decision instead of string-comparing output against a hardcoded placeholder
+// (the old out===s ? placeholder : out check). Substitution logic itself is unchanged.
+function simpleTranslate(s){
+ const map=[["Many researchers","많은 연구자들은"],["have questioned","의문을 제기해 왔다"],["traditional explanation","전통적인 설명"],["Recent studies","최근 연구들은"],["sleep","수면"],["memory","기억"],["students","학생들"],["evidence","증거"],["as a result","그 결과"],["in contrast","반대로"],["significant","중요한"],["information","정보"],["study","연구"],["researchers","연구자들은"],["demonstrate","보여 준다"],["may","~할 수 있다"],["better","더 잘"],["after","후에"],["performed","수행했다"],["concluded","결론 내렸다"],["influence","영향을 주다"],["cognitive performance","인지 수행 능력"],["stress","스트레스"],["poor sleep habits","좋지 않은 수면 습관"],["weaker results","더 낮은 결과"]];
+ let out=s;map.forEach(([a,b])=>out=out.replace(new RegExp(a,"gi"),b));
+ return {ko:out, matched: out!==s};
+}
+// Milestone 2 Dev Task 3 — see docs/milestones/milestone-02/02-ARCHITECTURE.md §6/§8 row "New
+// helper ... translateLingva(s)". Tries each configured Lingva instance in order; returns null on
+// total failure so the caller (translateSentenceReliable) falls through to the phrase map. Each
+// attempt is wrapped by fetchWithTimeout, per §3's "each network attempt" requirement.
+async function translateLingva(s){
+ for(const host of LINGVA_INSTANCES){
+  try{
+   const url="https://"+host+"/api/v1/en/ko/"+encodeURIComponent(s);
+   const res=await fetchWithTimeout(url,REQUEST_TIMEOUT_MS);
+   if(!res.ok)continue;
+   const data=await res.json();
+   if(data&&typeof data.translation==="string"&&data.translation.trim())return data.translation;
+  }catch(e){}
+ }
+ return null;
+}
+// Milestone 2 Dev Task 3 — see docs/milestones/milestone-02/02-ARCHITECTURE.md §2-§4/§6/§8 row 3.
+// Full provider chain: cache (unless bypassed) → MyMemory attempt 1 → RETRY_BACKOFF_MS backoff →
+// MyMemory attempt 2 → Lingva (ordered instance list) → simpleTranslate(). Returns a structured
+// {ko, status:'success'|'error', source} result and writes only successful results into
+// translationCache, per §4's "only successful results are cached" rule.
+//
+// WIRED IN as of Milestone 2 Dev Task 6: analyze() now dispatches through runWithConcurrency and
+// calls this function directly (see analyze() below); the old translateSentence()/Dev Task 2
+// bridge function has been removed as dead code now that nothing calls it — see
+// 03-IMPLEMENTATION-LOG.md's Dev Task 6 entry for the full rationale.
+async function translateSentenceReliable(s,{bypassCache=false}={}){
+ if(!bypassCache&&translationCache.has(s))return translationCache.get(s);
+ async function tryMyMemory(){
+  const url="https://api.mymemory.translated.net/get?q="+encodeURIComponent(s)+"&langpair=en|ko";
+  const res=await fetchWithTimeout(url,REQUEST_TIMEOUT_MS);
+  if(!res.ok)throw new Error("mymemory http error");
+  const data=await res.json();
+  const translated=data?.responseData?.translatedText;
+  if(translated&&translated.toLowerCase()!==s.toLowerCase())return translated;
+  throw new Error("mymemory returned no usable translation");
+ }
+ let result=null,source=null;
+ try{
+  result=await tryMyMemory();source="mymemory";
+ }catch(e1){
+  await new Promise(r=>setTimeout(r,RETRY_BACKOFF_MS));
+  try{
+   result=await tryMyMemory();source="mymemory";
+  }catch(e2){
+   const lingva=await translateLingva(s);
+   if(lingva){result=lingva;source="lingva";}
+  }
+ }
+ if(result){
+  const success={ko:result,status:"success",source};
+  translationCache.set(s,success);
+  return success;
+ }
+ const phrase=simpleTranslate(s);
+ if(phrase.matched){
+  const success={ko:phrase.ko,status:"success",source:"phrasemap"};
+  translationCache.set(s,success);
+  return success;
+ }
+ return {ko:null,status:"error",source:null};
+}
+// Multi-AI V2 Phase 2A — see docs/MULTI_AI_ARCHITECTURE_V2.md §3/§4/§7. Minimal router scaffold:
+// a provider registry and aiRouter.request() with exactly one adapter, legacy-translation, which
+// wraps translateSentenceReliable() unchanged. No retry/cache/concurrency logic is duplicated or
+// moved here — all of that stays inside translateSentenceReliable() itself, per the architecture
+// doc's translation compatibility plan. Only analyze()'s dispatch call site is routed through this
+// in Phase 2A.
+const providerRegistry={};
+function registerProvider(adapter){providerRegistry[adapter.id]=adapter}
+registerProvider({
+ id:"legacy-translation",
+ offline:false,
+ costTier:"free",
+ canHandle(taskType){return taskType==="translation"},
+ async request(taskType,payload,options){
+  const r=await translateSentenceReliable(payload.text,options||{});
+  return {success:r.status==="success",data:r,model:null,error:r.status==="error"?"translation failed":null};
+ }
+});
+async function aiRouter_request(taskType,payload,options={}){
+ const started=Date.now();
+ const adapter=Object.values(providerRegistry).find(p=>p.canHandle(taskType));
+ if(!adapter)return {success:false,provider:null,model:null,data:null,latencyMs:Date.now()-started,fallbackUsed:false,error:"no provider available for "+taskType};
+ const r=await adapter.request(taskType,payload,options);
+ return {success:r.success,provider:adapter.id,model:r.model,data:r.data,latencyMs:Date.now()-started,fallbackUsed:false,error:r.error};
+}
+const aiRouter={request:aiRouter_request};
+// Multi-AI V2 Phase 3A — see docs/MULTI_AI_ARCHITECTURE_V2.md §4/§9. First real AI provider
+// adapter: gemini, handling only taskType "summary". Registered in the same providerRegistry as
+// legacy-translation but does not affect it — canHandle("translation") is false here, so
+// aiRouter.request("translation",...) keeps resolving to legacy-translation exactly as before.
+// Nothing in this file calls aiRouter.request("summary",...) yet, so this adapter is dormant:
+// present and independently testable, but not wired into the Summary tab (overview()) or any
+// other UI call site in this phase.
+//
+// DEVELOPMENT-ONLY key mechanism (see architecture doc §9 "development-only keys"): no real key is
+// ever hard-coded in this file. A developer may set window.SAT_STUDIO_DEV_KEYS = { gemini: "..." }
+// from the browser console or a local, untracked script before this script block runs. If no key
+// is present, the adapter fails cleanly — success:false, no network call, no exception — and the
+// rest of the app is unaffected. This mechanism must never be used to ship a real key inside this
+// distributable HTML file; a production deployment needs a backend/proxy per architecture doc §9.
+const GEMINI_MODEL="gemini-3.1-flash-lite";
+function getDevApiKey(providerId){
+ try{
+  return (typeof window!=="undefined"&&window.SAT_STUDIO_DEV_KEYS&&window.SAT_STUDIO_DEV_KEYS[providerId])||null;
+ }catch(e){return null}
+}
+registerProvider({
+ id:"gemini",
+ offline:false,
+ costTier:"paid",
+ canHandle(taskType){return taskType==="summary"},
+ async request(taskType,payload,options){
+  const apiKey=getDevApiKey("gemini");
+  if(!apiKey){
+   return {success:false,data:null,model:GEMINI_MODEL,error:"gemini: no development API key configured (DEVELOPMENT ONLY mechanism; see docs/MULTI_AI_ARCHITECTURE_V2.md §9)"};
+  }
+  // Only the passage text needed for the summary is sent — no title, grade, student identity, or
+  // any other field, per the architecture doc's student-privacy requirement.
+  const text=(payload&&payload.text)||"";
+  if(!text){
+   return {success:false,data:null,model:GEMINI_MODEL,error:"gemini: no text provided for summary"};
+  }
+  const controller=new AbortController();
+  const timer=setTimeout(()=>controller.abort(),(options&&options.timeoutMs)||REQUEST_TIMEOUT_MS);
+  try{
+   const url="https://generativelanguage.googleapis.com/v1beta/models/"+GEMINI_MODEL+":generateContent?key="+encodeURIComponent(apiKey);
+   const res=await fetch(url,{
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    signal:controller.signal,
+    body:JSON.stringify({contents:[{parts:[{text:"Summarize the following passage in 2-3 sentences:\n\n"+text}]}]})
+   });
+   if(!res.ok)return {success:false,data:null,model:GEMINI_MODEL,error:"gemini: http "+res.status};
+   const json=await res.json();
+   const summary=json&&json.candidates&&json.candidates[0]&&json.candidates[0].content&&json.candidates[0].content.parts&&json.candidates[0].content.parts[0]&&json.candidates[0].content.parts[0].text;
+   if(!summary)return {success:false,data:null,model:GEMINI_MODEL,error:"gemini: empty response"};
+   return {success:true,data:{summary:summary.trim()},model:GEMINI_MODEL,error:null};
+  }catch(e){
+   return {success:false,data:null,model:GEMINI_MODEL,error:"gemini: "+(e&&e.message?e.message:"request failed")};
+  }finally{
+   clearTimeout(timer);
+  }
+ }
+});
+function fallbackKoreanGloss(w){
+ const map={
+  epidemiological:"역학의, 질병 발생과 분포를 연구하는",immunocompromised:"면역력이 저하된",gastrointestinal:"위장관의",
+  investigation:"조사, 수사, 연구",officials:"관계자들, 공무원들",confirmed:"확인했다, 확정했다",
+  symptoms:"증상들",outbreak:"질병의 집단 발생",parasite:"기생충, 원충",contaminated:"오염된",
+  produce:"농산물",reported:"보고했다",hospitalized:"입원한",fatalities:"사망자 수, 사망 사례",
+  complications:"합병증, 복잡한 문제들",treatment:"치료",prevention:"예방"
+ };
+ if(map[w])return map[w];
+ if(w.endsWith("tion"))return "행위·과정·상태를 나타내는 명사로, 문맥에 따라 구체적인 뜻을 확인해야 함";
+ if(w.endsWith("ment"))return "행위의 결과·상태·제도 등을 나타내는 명사";
+ if(w.endsWith("ity"))return "성질·상태를 나타내는 명사";
+ if(w.endsWith("ous")||w.endsWith("ive")||w.endsWith("al"))return "성질이나 관련성을 나타내는 형용사";
+ return "지문에서 사용된 학술·보도 어휘로, 문맥과 사전 링크를 함께 확인해야 함";
+}
+function levelFor(w){
+ if(["cyclosporiasis","administration","administrator","spokesperson","dehydration","corroborate","mitigate","prevalent","nuanced","empirical","plausible","undermine","ubiquitous","substantiate","ambiguous"].includes(w)) return 12;
+ if(["underlying","contracted","identities","impacted","hypothesis","controversial","consequently","cognitive","demonstrate","significant","influence","retain","contrast","infer"].includes(w)) return 11;
+ if(["evidence","researchers","traditional","explanation","factor","account"].includes(w)) return 10;
+ return 9;
+}
+async function analyze(){
+ const text=document.getElementById("passage").value.trim();
+ if(!text){toast("영어 지문을 입력해 주세요.");return}
+ const analyzeBtn=document.getElementById("analyzeBtn");
+ if(analyzeBtn)analyzeBtn.disabled=true;
+ try{
+ const sents=splitSentences(text), unique=[...new Set(words(text))];
+ let vocab=unique.filter(w=>dictionary[w]).map(w=>({word:w,data:dictionary[w],level:levelFor(w)}));
+ if(vocab.length<12){
+   unique.filter(w=>w.length>=7 && !vocab.some(v=>v.word===w)).sort((a,b)=>b.length-a.length).slice(0,12-vocab.length).forEach((w,i)=>{
+     const level=w.length>=11?12:w.length>=9?11:10;
+     const fallback=fallbackExamplePool[i%fallbackExamplePool.length];
+     vocab.push({word:w,level,data:["academic or informational word","a word selected from the passage; use the linked learner dictionaries to confirm its exact sense in context",fallbackKoreanGloss(w),fallback[0].replaceAll("{word}",w),fallback[1].replaceAll("{word}",w),"see dictionary links for exact synonyms","an exact antonym may not exist; check the sense in context"]})
+   });
+ }
+ vocab.sort((a,b)=>b.level-a.level || b.word.length-a.word.length);
+ const lower=text.toLowerCase();
+ const desiredPhraseCount=Math.min(25,Math.max(10,Math.ceil(unique.length/12)));
+ const exactPhrases=phraseBank.filter(p=>lower.includes(p[0]));
+ const supplemental=phraseBank.filter(p=>!lower.includes(p[0])).slice(0,Math.max(0,desiredPhraseCount-exactPhrases.length));
+ const phrases=[...exactPhrases,...supplemental].slice(0,desiredPhraseCount);
+ document.getElementById("status").textContent="학습자료를 생성하는 중…";
+ const qcount=Number(document.getElementById("qcount").value);
+ const questions=makeQuestions(text,sents,vocab,qcount);
+ // Milestone 2 Dev Task 6 — see docs/milestones/milestone-02/02-ARCHITECTURE.md §2/§5/§8's
+ // analyze() row. translations[] starts in its 'loading' shape and state.analysis is assigned
+ // (with vocab/phrases/questions already fully computed above) before any translation network
+ // call starts, so the immediate render() below shows a real, complete overview/vocab/phrases/SAT
+ // tab plus a translation-tab loading skeleton — not a blocking wait on every sentence resolving,
+ // per §5's progressive-rendering requirement.
+ const translations=sents.map(s=>({en:s,ko:null,status:"loading",source:null}));
+ state.analysis={text,sents,vocab,phrases,translations,questions,title:document.getElementById("title").value||"제목 없는 학습자료",grade:document.getElementById("grade").value,date:new Date().toLocaleString("ko-KR")};
+ document.getElementById("analysisTitle").textContent=state.analysis.title;
+ state.active="overview";
+ document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.tab==="overview"));
+ render(); toast("지문 분석이 완료되었습니다.");
+ // Dispatch translation requests through the bounded-concurrency pool (Dev Task 1) and the full
+ // provider chain (Dev Task 3) instead of the old blocking Promise.all/translateSentence call.
+ // Each worker mutates translations[i] in place and patches just that row via
+ // updateTranslationRow(i) (Dev Task 6) rather than re-rendering the whole tab, per §5/§7. The
+ // await stays inside this try block (not moved to a fire-and-forget call) so the finally block's
+ // analyzeBtn re-enable still waits for the full pool, preserving Milestone 1's overlap guard.
+ let completed=0;
+ document.getElementById("status").textContent=`한글 번역 진행 중… (0/${sents.length} 완료)`;
+ await runWithConcurrency(sents,CONCURRENCY_LIMIT,async(s,i)=>{
+   const routed=await aiRouter.request("translation",{text:s});
+   const r=routed.data;
+   Object.assign(translations[i],{ko:r.ko,status:r.status,source:r.source});
+   updateTranslationRow(i);
+   completed++;
+   document.getElementById("status").textContent=`한글 번역 진행 중… (${completed}/${sents.length} 완료)`;
+ });
+ const failedCount=translations.filter(t=>t.status==="error").length;
+ document.getElementById("status").textContent=`분석 완료 · ${sents.length}문장 · ${vocab.length}개 핵심어휘`+(failedCount?` · 번역 ${failedCount}건 실패`:"");
+ } finally {
+   if(analyzeBtn)analyzeBtn.disabled=false;
+ }
+}
+// Milestone 2 Dev Task 6 — see docs/milestones/milestone-02/02-ARCHITECTURE.md §7/§8's
+// updateTranslationRow row. Patches only the DOM node for sentence i (found via the data-i hook
+// translationRowTemplate already renders, added in Dev Task 4) if the translation tab is
+// currently active; otherwise a no-op, since the full translation(a) render already picks up
+// current state whenever the user switches to that tab. Defensive: also no-ops if the DOM node
+// can't be found (e.g. render() hasn't happened yet), which the architecture doesn't explicitly
+// call out but is necessary to avoid a null-reference error.
+function updateTranslationRow(i){
+ if(state.active!=="translation")return;
+ const node=document.querySelector('#result [data-i="'+i+'"]');
+ if(!node)return;
+ node.outerHTML=translationRowTemplate(state.analysis.translations[i],i);
+}
+// Milestone 2 Dev Task 6 — see docs/milestones/milestone-02/02-ARCHITECTURE.md §3/§8's
+// retrySentence row. Exposed for the error row's retry button onclick (Dev Task 4), matching the
+// existing inline-handler convention already used throughout this file (e.g. onclick="analyze()").
+// Re-runs the full provider chain for only this one sentence, bypassing the cache (a failed
+// sentence is never cached, per §4, so bypassCache only matters if a user retries a sentence that
+// somehow already succeeded), then patches just that row.
+async function retrySentence(i){
+ const a=state.analysis;
+ if(!a||!a.translations[i])return;
+ const routed=await aiRouter.request("translation",{text:a.translations[i].en},{bypassCache:true});
+ const r=routed.data;
+ Object.assign(a.translations[i],{ko:r.ko,status:r.status,source:r.source});
+ updateTranslationRow(i);
+}
+function englishOnly(s,fallback="The passage provides relevant evidence for its central claim."){
+ const raw=String(s||"").trim();
+ if(!raw) return fallback;
+ if(/[가-힣ㄱ-ㅎㅏ-ㅣ]/.test(raw)) return fallback;
+ const cleaned=raw.replace(/\s+/g," ").trim();
+ const latin=(cleaned.match(/[A-Za-z]/g)||[]).length;
+ return latin>=3?cleaned:fallback;
+}
+function shuffleChoices(q){
+ const order=q.choices.map((_,i)=>i);
+ for(let i=order.length-1;i>0;i--){
+   const j=Math.floor(Math.random()*(i+1));
+   [order[i],order[j]]=[order[j],order[i]];
+ }
+ return {...q,choices:order.map(i=>q.choices[i]),ans:order.indexOf(q.ans)};
+}
+function makeQuestions(text,sents,vocab,n){
+ const first=englishOnly(sents[0]||text);
+ const second=englishOnly(sents[1]||sents[0]||text);
+ const third=englishOnly(sents[2]||sents[1]||sents[0]||text);
+ const last=englishOnly(sents[sents.length-1]||text);
+ const key=vocab.find(v=>v.level>=11)?.word||vocab[0]?.word||"evidence";
+ const data=dictionary[key];
+ const englishMeaning=data?.[1]||"the meaning best supported by the surrounding context";
+ const synonym=(data?.[5]||"a closely related term").split(",")[0].trim();
+ const qs=[
+ {type:"Central Idea",q:"Which choice best states the central idea of the passage?",choices:["The passage develops a focused claim and uses relevant details to explain or qualify that claim.","The passage presents several unrelated observations without establishing a meaningful connection among them.","The passage rejects evidence-based reasoning in favor of personal preference.","The passage primarily tells an entertaining story whose details have no analytical purpose."],ans:0,why:"The correct answer must account for the passage as a whole, including both its main claim and the role of its supporting details."},
+ {type:"Vocabulary in Context",q:`As used in the passage, “${key}” most nearly means`,choices:[englishMeaning,"a decorative expression that contributes no meaning","a complete rejection of the author's position","an individual introduced only as a minor example"],ans:0,why:`The answer should match how “${key}” functions in its sentence, not merely a familiar dictionary meaning.`},
+ {type:"Inference",q:"Which choice states the most reasonable inference from the passage?",choices:["A careful reader may need to revise an earlier assumption when the passage introduces stronger or more specific evidence.","The author believes that every possible explanation has already been disproved.","The passage suggests that additional research would be useless under all circumstances.","The author considers emotional reaction more reliable than verifiable evidence."],ans:0,why:"A valid SAT inference is strongly supported by the passage but is not simply copied from it."},
+ {type:"Text Structure",q:"What is the primary function of the second sentence in relation to the first?",choices:["It develops the issue introduced in the opening by adding evidence, clarification, or a more specific claim.","It abandons the original subject and begins an unrelated narrative.","It repeats the first sentence without changing or extending its meaning.","It introduces a conclusion that directly contradicts every earlier statement."],ans:0,why:`The opening establishes the topic, while the next sentence—“${second.slice(0,120)}${second.length>120?"…":""}”—develops that topic.`},
+ {type:"Command of Evidence",q:"Which quotation from the passage most directly supports the central claim?",choices:[second,first,"A general opinion that is not stated in the passage.","A detail from an unrelated topic that the author never discusses."],ans:0,why:"The strongest evidence is the sentence that most directly develops or substantiates the passage's main point."},
+ {type:"Transitions",q:"Which transition would most logically introduce a sentence that presents an opposing or sharply different result?",choices:["For example,","In contrast,","Therefore,","Similarly,"],ans:1,why:'“In contrast” signals that the next idea differs from the preceding one.'},
+ {type:"Rhetorical Synthesis",q:"Which choice best describes the role of the final sentence?",choices:["It qualifies, contrasts with, or extends the preceding discussion by adding a final consideration.","It introduces the topic for the first time after the discussion has ended.","It provides a definition unrelated to the rest of the passage.","It repeats the title without contributing to the argument."],ans:0,why:`The final sentence—“${last.slice(0,120)}${last.length>120?"…":""}”—should be interpreted in relation to the reasoning that precedes it.`},
+ {type:"Purpose of Detail",q:"Why does the author most likely include the third sentence?",choices:["To provide a concrete example, result, or observation that makes the broader claim more specific","To shift from analysis to an unrelated fictional scene","To acknowledge that the passage contains no supporting information","To define a word that never appears elsewhere in the passage"],ans:0,why:`The sentence—“${third.slice(0,120)}${third.length>120?"…":""}”—serves as a specific piece of the passage's larger reasoning.`},
+ {type:"Precision",q:`Which choice is closest in meaning to “${key}” as it is used in the passage?`,choices:[synonym,"irrelevant","accidental","unrelated"],ans:0,why:"The best synonym preserves the word's contextual meaning and grammatical role."},
+ {type:"Author's Purpose",q:"Which choice best describes the author's primary purpose in the passage?",choices:["To explain or evaluate an idea by connecting claims with evidence and logical relationships","To entertain readers with an imaginary event that has no broader implication","To advertise a product through unsupported praise","To provide a list of directions for completing a physical task"],ans:0,why:"The passage's organization is primarily analytical and explanatory."}
+ ];
+ return qs.slice(0,Math.min(10,n)).map(q=>({
+   ...q,
+   q:englishOnly(q.q,"Which choice best answers the question about the passage?"),
+   choices:q.choices.map((c,i)=>englishOnly(c,["The passage supports this interpretation.","The passage does not support this interpretation.","This choice introduces an unrelated claim.","This choice misrepresents the passage."][i])),
+   why:englishOnly(q.why,"The correct answer is the choice most directly supported by the passage.")
+ })).map(shuffleChoices);
+}
+function render(){
+ const r=document.getElementById("result"),a=state.analysis;
+ if(!a){r.innerHTML='<div class="empty">지문을 입력하고 <b>지문 분석하기</b>를 누르세요.</div>';return}
+ if(state.active==="overview") r.innerHTML=overview(a);
+ if(state.active==="translation") r.innerHTML=translation(a);
+ if(state.active==="vocab") r.innerHTML=vocab(a);
+ if(state.active==="phrases") r.innerHTML=phrases(a);
+ if(state.active==="grammar") r.innerHTML=grammar(a);
+ if(state.active==="examples") r.innerHTML=examples(a);
+ if(state.active==="esl") r.innerHTML=esl(a);
+ if(state.active==="sat") r.innerHTML=sat(a);
+}
+function overview(a){return `<div class="summary-grid">
+ <div class="stat c-blue"><strong>${a.sents.length}</strong><span>문장 수</span></div>
+ <div class="stat c-pink"><strong>${a.vocab.length}</strong><span>핵심 어휘</span></div>
+ <div class="stat c-purple"><strong>${a.phrases.length}</strong><span>숙어·구문</span></div>
+ <div class="stat c-yellow"><strong>${a.questions.length}</strong><span>SAT 문제</span></div></div>
+ <div class="card c-mint"><h3>학습 흐름</h3>전체 해석 → 학년별 단어 → 숙어·문법 → 예문·ESL → SAT 문제 풀이</div>
+ <div class="card"><h3>지문 미리보기</h3><div class="en">${escapeHtml(a.text)}</div></div>
+ <div class="card c-blue"><h3>추천 학습 방법</h3><div class="ko">먼저 번역을 가리고 지문을 읽은 뒤, 단어와 구문을 확인하고 마지막에 SAT 문제를 풀어 보세요.</div></div>`}
+// Milestone 2 Dev Task 4 — see docs/milestones/milestone-02/02-ARCHITECTURE.md §5/§7/§8 ("New
+// helper, colocated near translation(a) | translationRowTemplate(x, i)"). The single shared
+// per-row markup function intended for both the future full translation(a) render and the future
+// targeted updateTranslationRow(i) patch, branching on x.status — per §7's explicit consistency
+// requirement ("both paths must render from the exact same per-row template function, not two
+// independently maintained markup strings"). All user/API-derived text (x.en, x.ko) is passed
+// through escapeHtml(), matching the existing Milestone 1 XSS-defense convention used everywhere
+// else in this file. The `error` branch never renders a placeholder string as if it were content,
+// per AC1 — it renders an explicit, visually distinct failure row instead.
+//
+// NOT YET WIRED IN: translation(a) immediately below still renders its own inline per-row markup
+// unchanged (today's single always-rendered en/ko shape, "success" state only); this function is
+// additive and currently unused, exactly like Dev Tasks 1 and 3's dormant additions.
+// translation(a)'s rewrite to consume this function, and updateTranslationRow(i)'s DOM-patching
+// use of it, are later tasks (§8's "translation(a)" and "updateTranslationRow" rows) — see
+// 03-IMPLEMENTATION-LOG.md for the full rationale.
+function translationRowTemplate(x,i){
+ const en=`<div class="en">${escapeHtml(x.en)}</div>`;
+ if(x.status==="loading"){
+  return `<div class="sentence loading" data-i="${i}">${en}<div class="ko">번역 중…</div></div>`;
+ }
+ if(x.status==="error"){
+  return `<div class="sentence error" data-i="${i}">${en}<div class="ko">이 문장의 번역에 실패했습니다. 인터넷 연결을 확인한 뒤 다시 시도해 주세요.</div><button class="btn btn-soft" onclick="retrySentence(${i})">다시 시도</button></div>`;
+ }
+ return `<div class="sentence" data-i="${i}">${en}<div class="ko">(${escapeHtml(x.ko)})</div></div>`;
+}
+// Milestone 2 Dev Task 5 — see docs/milestones/milestone-02/02-ARCHITECTURE.md §7/§8 row
+// "translation(a) (lines 443–444) | Rewritten to map each entry through translationRowTemplate(x,i)
+// instead of the current single-shape template string." Per-sentence rows now go through the one
+// shared template function introduced in Dev Task 4, satisfying §7's consistency requirement
+// ("both paths must render from the exact same per-row template function"). The "자연스러운 전체
+// 해석" (natural full interpretation) summary card below is unchanged — that block isn't named in
+// this architecture row, and Array.prototype.join() already treats a null/undefined ko as an empty
+// string rather than the literal text "null"/"undefined", so it needs no change here.
+function translation(a){return `<div class="card c-blue translation-card"><h3>문장별 영어·한국어 해석</h3>${a.translations.map((x,i)=>translationRowTemplate(x,i)).join("")}</div>
+<div class="card"><h3>자연스러운 전체 해석</h3><div class="ko">${escapeHtml(a.translations.map(x=>x.ko).join(" "))}</div></div>`}
+function dictionaryLinks(word){
+ const w=encodeURIComponent(word);
+ return `<div class="source-row"><span class="small" style="align-self:center">사전 확인:</span>
+ <a class="source-link" target="_blank" rel="noopener" href="https://www.merriam-webster.com/dictionary/${w}">Merriam-Webster</a>
+ <a class="source-link" target="_blank" rel="noopener" href="https://www.oxfordlearnersdictionaries.com/search/english/?q=${w}">Oxford Learner's</a>
+ <a class="source-link" target="_blank" rel="noopener" href="https://dictionary.cambridge.org/dictionary/english/${w}">Cambridge</a>
+ <a class="source-link" target="_blank" rel="noopener" href="https://www.thesaurus.com/browse/${w}">Thesaurus</a></div>`;
+}
+function vocab(a){return a.vocab.map(v=>`<div class="card word-card">
+ <div><span class="level l${v.level}">${v.level}학년${v.level===12?"/SAT 고급":""}</span></div>
+ <div class="word">${v.word}<div class="pron-row"><span class="ipa">${ipaMap[v.word]||"/ 발음기호 자동 자료 없음 /"}</span><button class="speak-btn" onclick='speakAmerican(${JSON.stringify(v.word)})'>🔊 미국식 발음 듣기</button></div><div class="small" style="margin-top:8px">${v.data[0]}</div></div>
+ <div><div class="meaning-block"><b>English meaning</b><div style="margin-top:9px;line-height:1.8">${v.data[1]}</div></div>
+ <div class="meaning-block"><b>한국어 뜻</b><div style="margin-top:9px;line-height:1.8">${v.data[2]}</div></div>
+ <div class="syn-ant"><div class="syn"><b>Synonyms · 동의어</b><div style="margin-top:7px">${v.data[5]||"문맥에 따라 확인"}</div></div><div class="ant"><b>Antonyms · 반의어</b><div style="margin-top:7px">${v.data[6]||"문맥에 따라 확인"}</div></div></div>
+ <div class="example"><div class="example-title">High-school academic example</div>${v.data[3]}<br><span class="ko">(${v.data[4]})</span></div>${dictionaryLinks(v.word)}</div></div>`).join("")}
+
+function phrases(a){
+ const phraseExamples={
+  "account for":["Differences in prior instruction may account for part of the achievement gap.","이전 교육의 차이가 성취도 격차의 일부를 설명할 수 있다."],
+  "in contrast":["In contrast, the second study included participants from a wider range of backgrounds.","반대로 두 번째 연구는 더 다양한 배경의 참가자들을 포함했다."],
+  "as a result":["The evidence was incomplete; as a result, the committee delayed its decision.","증거가 불완전했기 때문에 위원회는 결정을 미뤘다."],
+  "be likely to":["Students are likely to retain a concept when they connect it to prior knowledge.","학생들은 개념을 기존 지식과 연결할 때 기억할 가능성이 높다."],
+  "play a role in":["Public transportation can play a role in expanding access to after-school programs.","대중교통은 방과 후 프로그램 접근성을 넓히는 데 역할을 할 수 있다."],
+  "not only A but also B":["The policy affected not only attendance but also students' participation in class.","그 정책은 출석뿐 아니라 학생들의 수업 참여에도 영향을 주었다."]
+ };
+ const intro=`<div class="card c-blue"><h3 style="font-size:19px">핵심 숙어·구문 ${a.phrases.length}개</h3><div class="ko">지문에 직접 등장한 표현을 먼저 제시하고, 독해와 작문에 함께 필요한 관련 구문을 보충했습니다.</div></div>`;
+ return intro+a.phrases.map((p,i)=>{const ex=phraseExamples[p[0]]||[`Students can use “${p[0]}” to express the logical relationship between two ideas more precisely.`,`학생들은 “${p[0]}”를 사용해 두 생각 사이의 논리적 관계를 더 정확하게 표현할 수 있다.`];return `<div class="card phrase-card ${["c-blue","c-mint","c-yellow","c-purple"][i%4]}"><h3>${p[0]}</h3><div class="meaning-block"><div class="phrase-label">English meaning</div><div style="margin-top:9px">${p[1]}</div></div><div class="meaning-block"><div class="phrase-label">한국어 뜻</div><div style="margin-top:9px">${p[2]}</div></div><div class="example"><div class="example-title">Academic example</div>${ex[0]}<br><span class="ko">(${ex[1]})</span></div></div>`}).join("")
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function grammarInsights(s){
+ const notes=[];
+ const sentence=s.trim();
+ const lower=sentence.toLowerCase();
+
+ const dashRelative=sentence.match(/—\s*(whose|who|which)\s+(.+?)\s*—/i);
+ const relative=sentence.match(/\b(who|whose|which|that)\s+([^,;—]+)/i);
+ const presentPerfect=sentence.match(/\b(has|have)\s+([a-z]+(?:ed|en|d)|died|been|had|found|shown|given|made)\b/i);
+ const pastPerfect=sentence.match(/\bhad\s+([a-z]+(?:ed|en|d)|been|found|shown|given|made)\b/i);
+ const modalPassive=sentence.match(/\b(may|might|can|could|will|would|should|must)\s+have\s+been\s+([a-z]+ed)\b/i);
+ const passive=sentence.match(/\b(is|are|was|were|be|been)\s+(not\s+)?([a-z]+ed)\b/i);
+ const reporting=sentence.match(/,\s*([^,]+?)\s+(said|reported|announced|confirmed)\b/i);
+ const according=sentence.match(/\baccording to\s+([^,.]+)/i);
+
+ if(/two people in michigan who had contracted cyclosporiasis have died/i.test(lower)){
+  notes.push(["main",`주어는 <b>“Two people in Michigan who had contracted cyclosporiasis”</b> 전체이고, 본동사는 <b>“have died”</b>입니다.`]);
+  notes.push(["caution",`<b>“who had contracted cyclosporiasis”</b>는 people을 꾸미는 관계절입니다. 관계절 안의 <b>had contracted</b>와 문장 본동사 <b>have died</b>를 혼동하지 마세요.`]);
+  notes.push(["korean",`한국어 학습자는 가까운 동사 <b>had</b>를 본동사로 보기 쉽습니다. 관계절을 괄호로 묶고 “Two people … have died”를 먼저 읽으면 구조가 분명해집니다.`]);
+  return notes;
+ }
+ if(/both people.*whose identities were not provided.*had significant underlying health conditions/i.test(lower)){
+  notes.push(["main",`주어는 <b>“Both people”</b>, 본동사는 <b>“had”</b>입니다. 대시 사이의 <b>“whose identities were not provided”</b>는 삽입된 설명입니다.`]);
+  notes.push(["caution",`<b>whose</b>는 ‘그들의 신원이’라는 소유 관계를 나타냅니다. <b>were not provided</b>는 수동태로 ‘제공되지 않았다’라는 뜻입니다.`]);
+  notes.push(["korean",`<b>“that may have been impacted …”</b>는 health conditions를 꾸밉니다. may have been + 과거분사는 ‘영향을 받았을 가능성’을 나타냅니다.`]);
+  return notes;
+ }
+
+ if(presentPerfect) notes.push(["main",`<b>“${escapeHtml(presentPerfect[0])}”</b>는 현재완료입니다. 과거의 사건을 현재의 결과나 현재 관련성과 연결합니다.`]);
+ else if(pastPerfect) notes.push(["main",`<b>“${escapeHtml(pastPerfect[0])}”</b>는 과거완료입니다. 다른 과거 사건보다 먼저 일어난 일을 나타냅니다.`]);
+ else {
+  const mainVerb=sentence.match(/\b(is|are|was|were|has|have|had|said|reported|found|showed|shows|suggests|indicates|provides|affected|caused|included|remains)\b/i);
+  if(mainVerb) notes.push(["main",`이 문장의 핵심 동사는 <b>“${escapeHtml(mainVerb[0])}”</b>입니다. 동사 앞의 명사구를 주어로 잡고 먼저 핵심 문장을 읽으세요.`]);
+ }
+
+ if(dashRelative) notes.push(["caution",`대시 사이의 <b>“${escapeHtml(dashRelative[0].replaceAll("—","").trim())}”</b>는 없어도 기본 문장이 성립하는 삽입 설명입니다.`]);
+ else if(relative) notes.push(["caution",`<b>“${escapeHtml(relative[0].trim())}”</b>는 앞의 명사를 꾸미는 관계절입니다. 관계절 안의 동사를 문장 전체의 본동사로 착각하지 마세요.`]);
+
+ if(modalPassive) notes.push(["korean",`<b>“${escapeHtml(modalPassive[0])}”</b>는 조동사 + 완료 + 수동 구조입니다. ‘~되었을 수도 있다’처럼 가능성을 조심스럽게 표현합니다.`]);
+ else if(passive) notes.push(["korean",`<b>“${escapeHtml(passive[0])}”</b>는 수동태입니다. 행동을 한 사람보다 행동을 받은 대상이 중요할 때 사용합니다.`]);
+ else if(reporting) notes.push(["korean",`뒤의 <b>“${escapeHtml(reporting[1].trim())} ${escapeHtml(reporting[2])}”</b>는 보도 출처를 덧붙이는 reporting clause입니다.`]);
+ else if(according) notes.push(["korean",`<b>“according to ${escapeHtml(according[1])}”</b>는 정보의 출처를 나타냅니다. 글쓴이 자신의 주장과 인용된 정보를 구별하세요.`]);
+
+ if(notes.length<2) notes.push(["caution","주어와 본동사를 먼저 연결한 뒤, 전치사구와 수식어를 나중에 붙여 읽으면 긴 문장이 쉬워집니다."]);
+ if(notes.length<3) notes.push(["korean","한국어와 달리 영어는 주어 뒤에 본동사가 분명해야 합니다. 긴 수식어가 끼어 있어도 주어·동사의 수 일치를 확인하세요."]);
+ return notes.slice(0,4);
+}
+function simpleGrammarHighlight(s){
+ let x=escapeHtml(s);
+ x=x.replace(/\b(who|whose|which|that)\b/gi,'<span class="g-clause">$1</span>');
+ x=x.replace(/\b(has died|have died|had contracted|were not provided|may have been impacted|has|have|had|is|are|was|were|said|reported|found|shows|suggests)\b/gi,'<span class="g-verb">$1</span>');
+ return x;
+}
+function grammar(a){
+ return `<div class="card c-pink"><h3>문장별 핵심 문법</h3><div class="ko">각 문장에서 실제로 조심해야 할 부분만 3~4줄로 설명합니다. 관계절 속 동사를 본동사로 착각하는 문제, 완료시제, 수동태, 주어·동사 수 일치를 우선적으로 다룹니다.</div></div>`+
+ a.sents.map((s,i)=>{
+  const notes=grammarInsights(s);
+  return `<div class="card"><h3>문장 ${i+1}</h3><div class="grammar-sentence">${simpleGrammarHighlight(s)}</div><div class="grammar-brief">${notes.map(n=>`<div class="grammar-${n[0]}">${n[1]}</div>`).join("")}</div></div>`
+ }).join("");
+}
+function highlightExampleWord(sentence,word){
+ const escaped=word.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+ const pattern=new RegExp(`[“"']?\\b(${escaped})\\b[”"']?`,"gi");
+ return sentence.replace(pattern,'<span class="example-word">$1</span>');
+}
+function examples(a){
+ const used=new Set();
+ return a.vocab.slice(0,12).map((v,i)=>{
+   let ex=exampleBank[v.word];
+   if(!ex){
+     const base=fallbackExamplePool[i%fallbackExamplePool.length];
+     ex=[base[0].replaceAll("{word}",v.word),base[1].replaceAll("{word}",v.word)];
+   }
+   while(used.has(ex[0])){const base=fallbackExamplePool[(i+used.size+1)%fallbackExamplePool.length];ex=[base[0].replaceAll("{word}",v.word),base[1].replaceAll("{word}",v.word)]}
+   used.add(ex[0]);
+   const cleanEn=ex[0].replaceAll("“","").replaceAll("”","").replace(new RegExp(`"${v.word}"`,"gi"),v.word); return `<div class="card ${i%2?"c-mint":"c-yellow"}"><h3>${i+1}. ${v.word}</h3><div class="en" style="line-height:1.85">${highlightExampleWord(cleanEn,v.word)}</div><div class="ko" style="margin-top:11px;line-height:1.85">(${ex[1]})</div></div>`
+ }).join("")
+}
+function esl(a){
+ const w1=a.vocab[0]?.word||"significant",w2=a.vocab[1]?.word||"evidence",w3=a.vocab[2]?.word||"plausible";
+ const target=`Did you find anything ${w1} in the reading? The passage provides useful ${w2}, but I think we should examine whether the conclusion is fully ${w3}.`;
+ const lines=[
+  ["A",`Did you find anything ${w1} in the reading?`,`그 읽기 자료에서 중요한 내용을 찾았어?`],
+  ["B",`Yes. The passage provides useful ${w2} for its main claim.`,`응. 그 지문은 중심 주장을 뒷받침하는 유용한 근거를 제시해.`],
+  ["A","Which detail did you find most convincing?","어떤 세부 내용이 가장 설득력 있었어?"],
+  ["B","The example in the middle was helpful because it connected the claim to a specific result.","중간의 예가 주장을 구체적인 결과와 연결해서 도움이 되었어."],
+  ["A",`Do you think the author's explanation is completely ${w3}?`,`저자의 설명이 완전히 타당하다고 생각해?`],
+  ["B","It is reasonable, but I would like to see evidence from a larger and more diverse group.","합리적이지만 더 크고 다양한 집단의 증거를 보고 싶어."],
+  ["A","That makes sense. The sample size could affect how broadly we apply the conclusion.","그 말이 맞아. 표본 크기는 결론을 얼마나 넓게 적용할지에 영향을 줄 수 있어."],
+  ["B","Exactly. We should distinguish between what the study demonstrates and what it merely suggests.","맞아. 연구가 입증하는 것과 단지 시사하는 것을 구별해야 해."],
+  ["A","How would you summarize the passage in one sentence?","그 지문을 한 문장으로 어떻게 요약하겠어?"],
+  ["B","I would say that the evidence supports the main idea, although the conclusion still needs careful qualification.","증거가 중심 생각을 뒷받침하지만 결론에는 여전히 신중한 제한이 필요하다고 말하겠어."]
+ ];
+ return `<div class="card c-purple"><h3>상황: 학교 과제에 관해 친구와 깊이 있게 대화하기</h3>${lines.map((x,i)=>`<div class="dialogue-line ${x[0]==="A"?"a":"b"}"><b>${x[0]}:</b> ${x[1]}<div class="ko">(${x[2]})</div></div>`).join("")}</div>
+ <div class="record-box"><h3>말하기 녹음과 간이 발음평가</h3><div class="ko">아래 문장을 읽고 녹음하세요. 평가 버튼을 누르면 버튼 바로 아래에 점수와 발음 주의사항이 표시됩니다.</div>
+ <div class="example" style="margin-top:13px">${target}</div>
+ <div class="record-controls"><button class="btn btn-primary" onclick="startRecording()">● 녹음 시작</button><button class="btn btn-soft" onclick="stopRecording()">■ 녹음 중지</button><button class="btn btn-soft" onclick="playRecording()">▶ 녹음 듣기</button><button class="btn btn-soft" onclick='evaluatePronunciation(${JSON.stringify(target)})'>발음 평가</button></div>
+ <div id="recordStatus" class="small">마이크 사용 권한이 필요합니다.</div>
+ <div class="evaluation-strip"><div id="pronScoreBox" class="evaluation-score"><span class="small">점수<br>대기 중</span></div><div id="pronNotes" class="evaluation-notes"><b>발음에서 유의할 점</b><br>녹음 후 평가를 누르면 강세, 빠진 단어, 문장 끝소리와 읽기 속도에 대한 참고사항이 표시됩니다.</div></div>
+ <div id="pronTranscript" class="small" style="margin-top:10px"></div></div>`
+}
+function startAudioMetrics(stream){
+ audioMetrics={frames:0,voiced:0,sumRms:0,sumSqRms:0,peak:0};
+ try{
+  audioContext=new (window.AudioContext||window.webkitAudioContext)();
+  const source=audioContext.createMediaStreamSource(stream);
+  analyser=audioContext.createAnalyser();analyser.fftSize=1024;source.connect(analyser);
+  const data=new Uint8Array(analyser.fftSize);
+  metricTimer=setInterval(()=>{
+   analyser.getByteTimeDomainData(data);
+   let sum=0;
+   for(const v of data){const n=(v-128)/128;sum+=n*n}
+   const rms=Math.sqrt(sum/data.length);
+   audioMetrics.frames++;audioMetrics.sumRms+=rms;audioMetrics.sumSqRms+=rms*rms;audioMetrics.peak=Math.max(audioMetrics.peak,rms);
+   if(rms>.018)audioMetrics.voiced++;
+  },80);
+ }catch(e){}
+}
+function stopAudioMetrics(){
+ if(metricTimer){clearInterval(metricTimer);metricTimer=null}
+ if(audioContext){try{audioContext.close()}catch(e){}audioContext=null}
+}
+async function startRecording(){
+ try{
+  const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+  recordedChunks=[];recordingStartedAt=Date.now();recordingDuration=0;speechTranscript="";
+  startAudioMetrics(stream);
+  mediaRecorder=new MediaRecorder(stream);
+  mediaRecorder.ondataavailable=e=>{if(e.data.size)recordedChunks.push(e.data)};
+  mediaRecorder.onstop=()=>{
+   recordingDuration=Math.max(.1,(Date.now()-recordingStartedAt)/1000);
+   stopAudioMetrics();
+   const blob=new Blob(recordedChunks,{type:'audio/webm'});recordedUrl=URL.createObjectURL(blob);
+   stream.getTracks().forEach(t=>t.stop());
+   if(speechRecognition){try{speechRecognition.stop()}catch(e){}}
+   const el=document.getElementById('recordStatus');if(el)el.textContent='녹음이 완료되었습니다. 이제 발음 평가를 눌러 주세요.';
+  };
+  mediaRecorder.start();startSpeechRecognition();
+  document.getElementById('recordStatus').textContent='녹음 중입니다… 문장을 자연스럽게 읽어 주세요.';
+ }catch(e){
+  const el=document.getElementById('recordStatus');if(el)el.textContent='마이크를 사용할 수 없습니다. 브라우저 권한을 확인해 주세요.';
+ }
+}
+function stopRecording(){if(mediaRecorder&&mediaRecorder.state!=='inactive')mediaRecorder.stop();if(speechRecognition){try{speechRecognition.stop()}catch(e){}}}
+function playRecording(){if(!recordedUrl){toast('먼저 녹음해 주세요.');return}new Audio(recordedUrl).play()}
+function startSpeechRecognition(){
+ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!SR){speechRecognition=null;return}
+ speechRecognition=new SR();speechRecognition.lang='en-US';speechRecognition.interimResults=true;speechRecognition.continuous=true;
+ speechRecognition.onresult=e=>{speechTranscript=Array.from(e.results).map(r=>r[0].transcript).join(' ')};
+ speechRecognition.onerror=()=>{};
+ try{speechRecognition.start()}catch(e){}
+}
+function evaluatePronunciation(target){
+ const scoreBox=document.getElementById('pronScoreBox'),notes=document.getElementById('pronNotes'),transcriptBox=document.getElementById('pronTranscript');
+ if(!scoreBox||!notes){toast('ESL 회화 페이지를 다시 열어 주세요.');return}
+ if(!recordedUrl){
+  scoreBox.innerHTML='<span class="score-badge">— / 10</span>';
+  notes.innerHTML='<b>평가할 녹음이 없습니다.</b><br>먼저 녹음 시작을 누르고 문장을 읽은 뒤 녹음 중지를 눌러 주세요.';
+  return;
+ }
+ const clean=s=>(String(s||"").toLowerCase().match(/[a-z']+/g)||[]);
+ const t=clean(target),p=clean(speechTranscript);
+ const lcs=(a,b)=>{const dp=Array(b.length+1).fill(0);for(let i=1;i<=a.length;i++){let prev=0;for(let j=1;j<=b.length;j++){const tmp=dp[j];dp[j]=a[i-1]===b[j-1]?prev+1:Math.max(dp[j],dp[j-1]);prev=tmp}}return dp[b.length]};
+ const sequence=p.length?lcs(t,p)/Math.max(1,t.length):0;
+ const coverage=p.length?Math.min(1,p.length/Math.max(1,t.length)):0;
+ const expectedSeconds=Math.max(6,t.length/2.25);
+ const durationScore=Math.max(0,1-Math.min(1,Math.abs(recordingDuration-expectedSeconds)/(expectedSeconds*.9)));
+ const frames=Math.max(1,audioMetrics.frames);
+ const avgRms=audioMetrics.sumRms/frames;
+ const variance=Math.max(0,audioMetrics.sumSqRms/frames-avgRms*avgRms);
+ const voicedRatio=audioMetrics.voiced/frames;
+ const audibility=Math.min(1,avgRms/.07);
+ const voicePresence=Math.min(1,voicedRatio/.65);
+ const dynamics=Math.min(1,Math.sqrt(variance)/.045);
+ const audioQuality=.45*audibility+.35*voicePresence+.20*dynamics;
+ let score;
+ let recognitionUsed=p.length>=Math.max(4,t.length*.18);
+ if(recognitionUsed){
+   const composite=.62*sequence+.16*coverage+.10*durationScore+.12*audioQuality;
+   score=5+5*composite;
+ }else{
+   const composite=.42*audioQuality+.33*durationScore+.25*voicePresence;
+   score=5.5+3.2*composite;
+ }
+ score=Math.max(5,Math.min(10,Math.round(score*2)/2));
+ const missed=recognitionUsed?t.filter((w,i)=>!p.includes(w)).slice(0,7):[];
+ const level=score>=9.5?"미국 영어 평균에 매우 가까운 명료도":score>=9?"매우 우수한 명료도":score>=8.5?"우수한 명료도":score>=8?"안정적인 중상급 명료도":score>=7.5?"좋은 중급 명료도":score>=7?"의미 전달이 잘 되는 수준":score>=6.5?"핵심 문장은 전달되는 수준":score>=6?"천천히 읽으면 전달되는 수준":score>=5.5?"단어별 발음 연습이 필요한 수준":"기초 발음 점검이 필요한 수준";
+ let cautions=[];
+ if(recognitionUsed&&missed.length)cautions.push(`다시 확인할 단어: ${[...new Set(missed)].join(", ")}`);
+ if(avgRms<.025)cautions.push("목소리가 작게 녹음되었습니다. 마이크에서 조금 더 가까이 읽어 보세요.");
+ if(voicedRatio<.35)cautions.push("침묵 구간이 많았습니다. 문장 사이의 멈춤을 조금 줄여 보세요.");
+ if(durationScore<.5)cautions.push("읽기 속도가 목표 문장 길이에 비해 빠르거나 느립니다. 의미 단위로 일정하게 읽어 보세요.");
+ if(score<8)cautions.push("내용어에 강세를 주고, 문장 끝 자음과 -s, -ed를 분명히 발음해 보세요.");
+ if(score>=8.5)cautions.push("전체적으로 명료합니다. 이제 연결 발음과 억양의 자연스러움을 다듬어 보세요.");
+ if(!recognitionUsed)cautions.push("이 브라우저에서는 문자 인식 결과가 충분하지 않아 음량·발화 구간·읽기 속도를 중심으로 평가했습니다.");
+ scoreBox.innerHTML=`<span class="score-badge">${score.toFixed(1)} / 10</span>`;
+ notes.innerHTML=`<b>${level}</b><br>${cautions.join("<br>")||"전체적으로 안정적인 발음입니다."}<br><span class="small">브라우저 기반 학습용 평가이며 전문 음성학 검사와 동일하지 않습니다.</span>`;
+ transcriptBox.textContent=recognitionUsed?`브라우저가 인식한 문장: ${speechTranscript}`:`음성 지표: 발화 구간 ${Math.round(voicedRatio*100)}%, 평균 음량 ${Math.round(audibility*100)}%, 읽기 속도 적합도 ${Math.round(durationScore*100)}%`;
+}
+function sat(a){return `<div class="card c-pink"><h3>SAT Practice · ${a.questions.length}문제</h3>중급~고급 수준의 중심 생각, 추론, 문장 기능, 근거, 어휘 문맥, 표현의 정확성 문제입니다.<div class="sat-warning">문제·선택지·해설은 영어로만 생성되도록 검증합니다.</div></div>${a.questions.map((q,i)=>`<div class="question" id="q${i}"><div class="small" style="font-weight:900;color:#6D4C7D;margin-bottom:7px">${escapeHtml(q.type||"SAT Reading and Writing")}</div><b>${i+1}. ${escapeHtml(q.q)}</b>${q.choices.map((c,j)=>`<label class="choice"><input type="radio" name="q${i}" value="${j}"> ${String.fromCharCode(65+j)}. ${escapeHtml(c)}</label>`).join("")}<div class="explanation" id="exp${i}"><b>Explanation:</b> ${escapeHtml(q.why)}</div></div>`).join("")}<button class="btn btn-primary" onclick="gradeQuiz()">채점하기</button>`}
+function gradeQuiz(){let score=0;state.analysis.questions.forEach((q,i)=>{const picked=document.querySelector(`input[name=q${i}]:checked`);document.querySelectorAll(`#q${i} .choice`).forEach((el,j)=>{el.classList.remove("correct","wrong");if(j===q.ans)el.classList.add("correct");if(picked&&Number(picked.value)===j&&j!==q.ans)el.classList.add("wrong")});if(picked&&Number(picked.value)===q.ans)score++;document.getElementById(`exp${i}`).style.display="block"});toast(`점수: ${score} / ${state.analysis.questions.length}`)}
+
+function getSavedList(){
+ try{
+   const raw=localStorage.getItem("satStudioSaved");
+   if(!raw)return[];
+   const parsed=JSON.parse(raw);
+   return Array.isArray(parsed)?parsed:[];
+ }catch(e){
+   console.warn("저장된 학습자료 데이터를 읽지 못했습니다. 데이터가 손상되었을 수 있어 빈 목록으로 표시합니다.",e);
+   return[];
+ }
+}
+// Bug fix SAVE-1 (QA-found, High severity) — see docs/milestones/milestone-02/04-QA-REPORT.md's
+// Dev Task 6 QA pass. Milestone 2 Dev Task 6 assigns state.analysis (and calls render()) before
+// translations resolve, so saveCurrent() — unmodified since before Milestone 2 — could previously
+// persist translations still in their 'loading' shape (ko:null) into localStorage. Reopening such
+// a save via loadSaved() rendered a permanently stuck "번역 중…" row: translationRowTemplate only
+// renders a retry affordance for status:'error', never for 'loading', so there was no recovery
+// path. Fix: block the save entirely while any sentence is still loading, so a 'loading' entry can
+// never reach localStorage in the first place. This is the narrowest of the three CEO-approved
+// options — it changes only saveCurrent()'s own guard clause, touches no other function, and needs
+// no new data shape, so retry behavior (retrySentence/translationRowTemplate), Dev Task 6's
+// analyze()/updateTranslationRow(), and old pre-Milestone-2 saved sets are all unaffected.
+function saveCurrent(){
+ if(!state.analysis){toast("먼저 지문을 분석해 주세요.");return}
+ if(state.analysis.translations.some(t=>t.status==="loading")){toast("한글 번역이 진행 중입니다. 번역이 완료된 후 저장해 주세요.");return}
+ const list=getSavedList();
+ let id=Date.now();
+ while(list.some(x=>x.id===id))id++;
+ const item={...state.analysis,id};
+ list.unshift(item);localStorage.setItem("satStudioSaved",JSON.stringify(list));toast("학습자료를 저장했습니다.");
+}
+function openSaved(){document.getElementById("drawer").classList.add("open");document.getElementById("overlay").classList.add("show");renderSaved()}
+function closeSaved(){document.getElementById("drawer").classList.remove("open");document.getElementById("overlay").classList.remove("show")}
+function renderSaved(){
+ const q=(document.getElementById("searchSaved").value||"").toLowerCase();
+ const list=getSavedList().filter(x=>(x.title+" "+x.text).toLowerCase().includes(q));
+ document.getElementById("savedList").innerHTML=list.length?list.map(x=>`<div class="saved-item"><h4>${escapeHtml(x.title)}</h4><div class="saved-meta">${escapeHtml(x.grade)} · ${escapeHtml(x.date)} · 어휘 ${x.vocab.length}개 · 문제 ${x.questions.length}개</div><button class="btn btn-soft" onclick="loadSaved(${x.id})">열기</button> <button class="btn btn-danger" onclick="deleteSaved(${x.id})">삭제</button></div>`).join(""):"<div class='empty' style='height:240px'>저장된 자료가 없습니다.</div>";
+}
+// Milestone 2 Dev Task 7 — see docs/milestones/milestone-02/02-ARCHITECTURE.md §8's loadSaved()
+// row. Defensive read: saved sets from before this milestone have translations entries shaped
+// only as {en,ko}, with no status field at all — translationRowTemplate (Dev Task 4/5) branches
+// on x.status, so a missing field must default to 'success' (matches those older entries' actual
+// meaning: they always held a real, already-resolved ko string) rather than being left undefined.
+// Matches CODING_STANDARDS.md's "handle localStorage reads defensively" rule. This only patches
+// the in-memory object used for this render — it does not rewrite localStorage, so the saved data
+// on disk is left exactly as it was.
+function loadSaved(id){
+ const list=getSavedList(),x=list.find(v=>v.id===id);if(!x)return;
+ if(Array.isArray(x.translations))x.translations=x.translations.map(t=>t&&t.status?t:{...t,status:"success"});
+ state.analysis=x;document.getElementById("title").value=x.title;document.getElementById("passage").value=x.text;document.getElementById("grade").value=x.grade;document.getElementById("analysisTitle").textContent=x.title;closeSaved();render();toast("저장된 학습자료를 열었습니다.");
+}
+function deleteSaved(id){
+ let list=getSavedList();
+ const item=list.find(x=>x.id===id);
+ const label=item?item.title||"제목 없는 학습자료":"이 학습자료";
+ if(!confirm(`"${label}"를(을) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`))return;
+ list=list.filter(x=>x.id!==id);localStorage.setItem("satStudioSaved",JSON.stringify(list));renderSaved()
+}
+function newPassage(){
+ const titleVal=document.getElementById("title").value.trim();
+ const passageVal=document.getElementById("passage").value.trim();
+ const hasUnsavedContent=Boolean(titleVal||passageVal||state.analysis);
+ if(hasUnsavedContent&&!confirm("저장하지 않은 제목·지문·분석 결과가 모두 사라집니다. 새 지문을 시작하시겠습니까?"))return;
+ document.getElementById("title").value="";document.getElementById("passage").value="";state.analysis=null;document.getElementById("analysisTitle").textContent="아직 분석하지 않았습니다";render()
+}
+function loadSample(){
+ document.getElementById("title").value="The Role of Sleep in Memory";
+ document.getElementById("passage").value="Many researchers have questioned the traditional explanation of how memory works. Recent studies demonstrate that sleep may play a significant role in helping students retain new information. In one experiment, students who slept after studying performed better than those who remained awake. Consequently, researchers concluded that sleep can influence cognitive performance. In contrast, stress and poor sleep habits may account for weaker results.";
+ toast("예제 지문을 불러왔습니다.");
+}
+function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),2200)}
+</script>
+</body>
+</html>

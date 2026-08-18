@@ -1,0 +1,22 @@
+# 05-REVIEW-REPORT.md — Milestone {{N}} — {{Title}}
+
+**FULL mode only.** In LIGHT mode this check is the CEO's direct release-approval step recorded in
+`LIGHT_CONTEXT.md` — this document doesn't exist for LIGHT milestones.
+
+## Independent verification
+
+- Implementation vs. `02-ARCHITECTURE.md`: {{matches / discrepancies noted}}
+- Acceptance criteria vs. `01-PM-SPEC.md`: {{spot-checked results, not just trusting 04-QA-REPORT.md}}
+- Code quality vs. `.ai-company/CODING_STANDARDS.md`: {{findings}}
+- `.ai-company/DEFINITION_OF_DONE.md` checklist: {{status of each item}}
+- Scope creep check: {{anything implemented outside the approved architecture}}
+
+## Decision
+
+**{{Approved | Rejected}}**
+
+Rationale: {{full reasoning}}
+
+## Handoff
+
+<!-- See .ai-company/HANDOFF_PROTOCOL.md for the required fields. -->

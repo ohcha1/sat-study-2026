@@ -1,0 +1,32 @@
+# 03-IMPLEMENTATION-LOG.md — Milestone {{N}} — {{Title}}
+
+Used in both modes. FULL mode: log each Developer session in full below. LIGHT mode: use the
+compact per-session block — see the LIGHT template further down.
+
+---
+
+## FULL-mode session log entry (repeat per session)
+
+### Session — {{date}} — {{Developer}}
+
+- Scope addressed: {{which 02-ARCHITECTURE.md items}}
+- Files changed: {{list}}
+- Commits:
+  - {{hash}} — {{message}}
+- Deviations / open items: {{any case the architecture didn't cover, flagged upward}}
+
+### Handoff
+
+<!-- See .ai-company/HANDOFF_PROTOCOL.md for the required fields. -->
+
+---
+
+## LIGHT-mode compact entry (repeat per session)
+
+```
+Session: {{date}} — {{Developer}}
+Scope: {{LIGHT_CONTEXT.md acceptance criteria addressed}}
+Files: {{list}}
+Commits: {{hash — message}}, ...
+Deviations: none | {{note, escalate if outside LIGHT_CONTEXT.md scope}}
+```

@@ -1,50 +1,33 @@
-# CLAUDE.md — Entry Point for Every Claude Session
+# CLAUDE.md — Entry Point
 
-This repository uses a persistent, file-based multi-agent development system. Chat memory is not
-trusted across sessions — this file and the `.ai-company/` directory are the single source of
-truth for how work happens here. Every Claude session, regardless of which role it is playing,
-must follow the sequence below before doing any work.
+This is a solo personal project. There is no multi-role process, no approval gates, and no
+milestone-document pipeline — that was tried on the `multi-ai-v2-dev` branch and in
+`_archive/2026-08-legacy-process/`, and it produced a lot of documentation and very little
+shipped feature work, so it's retired. Don't recreate it.
 
-## 1. Read order (mandatory, in this order)
+## What this app actually is
 
-1. `CLAUDE.md` (this file)
-2. `.ai-company/WORKFLOW.md` — the mandatory development lifecycle and approval gates
-3. `.ai-company/AGENTS.md` — the seven defined roles and their authority
-4. The role file matching your assigned role (e.g. `.ai-company/DEVELOPER.md`)
-5. `.ai-company/GIT_RULES.md`, `.ai-company/CODING_STANDARDS.md`, `.ai-company/TESTING_STANDARDS.md`,
-   `.ai-company/DEFINITION_OF_DONE.md`, `.ai-company/HANDOFF_PROTOCOL.md` as relevant to your role
-6. The current milestone's documents under `docs/milestones/milestone-XX/`, in numeric filename
-   order, up through the last document that has been written. Do not read ahead into documents
-   that belong to a phase after yours.
-7. `DEVELOPMENT_PLAN.md` for overall project scope and sequencing.
+A single self-contained `index.html` (no build step, no server). All logic is in one inline
+`<script>` block. Real audience: people who came from Korea, working on English reading
+comprehension — not literally "SAT prep." The core loop that matters most: paste/import a
+passage or add a word/phrase directly → save it to the **단어장·복습 (review deck)** →
+review it on a spaced schedule until it's actually memorized. Everything else (grammar
+detector, SAT-style question generator, pronunciation coach, translation) is a supporting
+tool around that core loop, not the main point.
 
-## 2. Identify your assigned role
+## Working on this repo
 
-You must operate as exactly one of the seven roles defined in `.ai-company/AGENTS.md`:
+1. Read `DEVELOPMENT_PLAN.md` for current priorities — it's a plain running list, not a
+   milestone pipeline.
+2. Make the change directly in `index.html`.
+3. Sanity-check with a real browser before calling it done. `smoke_test.js` (Playwright) is a
+   working example of how to load the file headlessly and exercise a feature end-to-end —
+   extend it or write a throwaway script in the same style; there's no test framework wired in.
+4. Commit with a plain, honest commit message describing what changed and why. Don't invent
+   process ceremony (no PM specs, no QA reports, no reviewer sign-off) for a one-person project.
+5. This repo pushes to GitHub only when the human operator explicitly asks for it.
 
-CEO / Product Owner, Product Manager, Software Architect, Senior Developer, QA Engineer,
-Principal Reviewer, Release Manager.
+## If anything is ambiguous
 
-If the human operator has not told you which role you are playing this session, ask before doing
-any work. Do not infer a role from context and proceed silently.
-
-## 3. Operating rules for every session
-
-- Operate on **one role and one phase at a time**. Do not perform another role's work, even if it
-  seems faster. If your phase's inputs are missing or incomplete, stop and say so — do not
-  backfill an upstream phase yourself.
-- **Never silently change scope.** If you discover work is needed that is outside the current
-  milestone or the current phase's stated inputs, log it (in the implementation log, QA report, or
-  review report as appropriate) and hand it upward. Do not implement it without an approval gate.
-- **Never push to GitHub without explicit owner (CEO) approval**, even if you have permission to
-  run `git push` mechanically. See `.ai-company/GIT_RULES.md`.
-- **Stop at every approval gate** defined in `.ai-company/WORKFLOW.md`. Produce your output, write
-  a handoff per `.ai-company/HANDOFF_PROTOCOL.md`, and stop. Do not proceed into the next phase in
-  the same session unless the operator explicitly re-invokes you as the next role.
-- Do not modify application source code unless you are the Senior Developer role, acting within an
-  approved Architecture Design for the current milestone.
-- Preserve `DEVELOPMENT_PLAN.md` and existing git history. Do not rewrite or delete prior commits.
-
-## 4. If anything is ambiguous
-
-Ask the human operator. Do not guess at scope, requirements, or approval status.
+Ask the human operator directly. Don't design a new process framework to resolve the
+ambiguity — that's the trap this project already fell into once.

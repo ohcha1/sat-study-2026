@@ -1,0 +1,131 @@
+# Development Plan — SAT English Learning Studio 2026
+
+This plan sequences the work identified in the initial project review into eight milestones. Each milestone is scoped to be independently shippable and testable before moving to the next. No feature behavior should change outside of a milestone's stated scope.
+
+## Milestone 1 — Bug Fixes Only — ✅ Completed 2026-08-06
+
+Goal: fix defects in existing behavior without adding or redesigning features.
+
+- [x] Escape all user- and API-controlled content before inserting it via `innerHTML` (passage preview in `overview()`, sentence translations in `translation()`, saved item titles/text in `renderSaved()`) to close the DOM-based XSS holes. — commit `7e862e6`
+- [x] Randomize the correct-answer position in `makeQuestions()` instead of always placing it at index 0 (index 1 for Transitions), so the SAT practice questions can't be gamed by pattern. — commit `c3b7f07`
+- [x] **(Discovered during verification of the above, not originally scoped)** Fix `englishOnly()` root cause: a `>=12` Latin-letter minimum silently discarded valid short English choices — e.g. all four real Transitions choices ("For example,", "In contrast,", "Therefore,", "Similarly,") and the short-synonym Precision choices — and replaced them with generic filler text, independent of the answer-shuffle change. Fixed by rejecting on any Hangul presence (was: strip-then-count, which let mixed-language fragments through) and lowering the minimum to `>=3` Latin letters, low enough for short valid words but still rejecting empty/symbol/numeric/Korean content. — commit `c86383c`
+- [x] Left the "분석 난이도" (difficulty) selector in place and functionally unchanged per explicit decision — it remains a documented no-op (see TODO comment in `index.html`) rather than being wired up or removed, deferred to Milestone 3 where it will drive real vocabulary/question difficulty. — commit `5e49b0c`
+- [x] Add a confirmation step before "새 지문" (New Passage) discards unsaved input. Only prompts when there's actually something to lose (non-empty title/passage or an existing analysis). — commit `d37306d`
+- [x] Add a confirmation step before "삭제" (delete) permanently removes a saved study set, naming the item's title in the prompt. — commit `2db26eb`
+- [x] Disable the "지문 분석하기" button while `analyze()` is in flight to prevent duplicate/overlapping submissions, re-enabling via `finally` so it can't get stuck disabled on error. — commit `b37795c`
+
+Exit criteria: met. Existing features behave identically for well-formed input; the bugs above no longer reproduce. No new features introduced, no UI redesign.
+
+Verification method: this project has no automated test framework, so each task was verified with a throwaway jsdom-based script (loading `index.html`, running scripts, exercising the changed function, and asserting on DOM/state output), plus a final combined regression sweep re-running all of Milestone 1's checks together before the last commit. Scripts were scratch files, not checked into the repo.
+
+### Milestone 1 follow-up inspection — ✅ Completed 2026-08-06
+
+A full feature-by-feature inspection was run after the items above shipped (all 8 result tabs across five passage types, save/load/search/delete, quiz grading, recording graceful-failure paths). No feature regressions found. The inspection did surface four additional defects not caught by the original fixes; the two Critical and two High findings were fixed immediately per instruction, each in its own commit. Medium/Low findings were logged, not fixed:
+
+- [x] **Critical — XSS in SAT tab.** `sat()` rendered `q.type`, `q.q`, each choice, and `q.why` via `innerHTML` unescaped. Several of these are built from the user's own passage sentences (`makeQuestions()`'s `first`/`second`/`third`/`last`), so a passage containing literal HTML could inject and execute it — confirmed with a live `<img>` element via jsdom, reachable through normal paste-a-passage usage, no adversarial input needed. — commit `c629c9d`
+- [x] **Critical — XSS in Grammar tab.** `grammarInsights()` embedded raw regex-captured substrings from the sentence (e.g. the relative-clause match, which captures everything from "who/which/that" to the next comma/semicolon/dash) directly into the notes alongside intentional `<b>` tags, unescaped. Confirmed the same way. Fixed by escaping each capture at its interpolation point while preserving the surrounding `<b>` formatting. — commit `22d16a3`
+- [x] **High — corrupted localStorage broke the entire saved-materials feature.** `saveCurrent()`, `renderSaved()`, `loadSaved()`, and `deleteSaved()` all did a bare `JSON.parse()` with no error handling; corrupted storage crashed all four with no user-facing message and no recovery path. Added `getSavedList()`, a resilient read helper that falls back to an empty list (existing empty-state UI already covers this) instead of throwing. — commit `7bca51b`
+- [x] **High — silent data loss from `Date.now()` id collisions.** Two `saveCurrent()` calls fired back-to-back could get the identical millisecond-resolution id; `deleteSaved()`'s `filter(x=>x.id!==id)` would then delete both at once. Confirmed empirically (2 rapid saves reliably collided). Fixed by incrementing the id until it's unique against the current saved list. — commit `dfd7397`
+
+**Logged, not fixed (Medium/Low, per instruction to fix only Critical/High):**
+- No error handling around `localStorage.setItem` for quota-exceeded on save (plausible after heavy long-term use; distinct from the corrupted-*read* issue fixed above, which only covered `JSON.parse` on existing data).
+- A latent design flaw in `examples()`'s duplicate-avoidance `while` loop (if a collision ever recurred, the retry logic wouldn't change on subsequent iterations) — stress-tested with duplicate/adversarial vocab inputs and could not find a path to actually trigger it, since the first-attempt template index is 1:1 with the map index for realistic list sizes. Not reachable in practice, so not actionable now.
+- Per-sentence translation API burst / no batching — already explicitly in Milestone 2's scope below, not new.
+- The sentence splitter's naive period-handling (surfaced incidentally while constructing an XSS test payload) and the two hardcoded grammar special-cases for the sample passage — both pre-existing, already tracked under Milestone 5.
+
+## Milestone 2 — Translation Reliability — ✅ Development/QA/Review Complete 2026-08-07
+
+Goal: make the translation feature behave predictably for passages beyond the built-in sample.
+
+- [x] Replace the silent "번역 서비스를 불러오지 못했습니다" placeholder (which currently renders as if it were a real translation) with a clearly labeled error/retry state. Implemented via `simpleTranslate()`'s structured `{ko,matched}` return (commit `313757b`), `translateSentenceReliable()`'s explicit `status:'success'|'error'` contract (commit `1563cef`), and `translationRowTemplate()`'s distinct loading/success/error row rendering (commit `fb70aa0`), with the error state's warning-colored styling and retry button finished last (commit `9fad20c`).
+- [x] Add request batching/throttling for the per-sentence MyMemory API calls to avoid bursts on long passages. Implemented via `runWithConcurrency()`, bounded to `CONCURRENCY_LIMIT=3` (commit `4f8975d`), wired into `analyze()`'s dispatch loop (commit `9dd5ae8`).
+- [x] Add a local caching layer (session-level) so re-analyzing the same passage doesn't re-request identical sentences. Implemented via the in-memory `translationCache` Map (commit `4f8975d`), read/written by `translateSentenceReliable()` (commit `1563cef`).
+- [x] Evaluate and document a fallback/secondary translation source for when MyMemory is unavailable or rate-limited. Documented in `docs/milestones/milestone-02/02-ARCHITECTURE.md` §6 (adopts Lingva Translate as secondary, rejects LibreTranslate, retains a corrected `simpleTranslate()` as tertiary fallback) and implemented via `translateLingva()` (commit `1563cef`).
+- [x] Add a visible loading state per sentence (not just the global status line) so partial translation progress is legible. Implemented via `translationRowTemplate()`'s loading branch (commit `fb70aa0`), `translation(a)`'s per-row wiring (commit `284ea76`), `analyze()`'s progressive per-sentence dispatch and `updateTranslationRow()` (commit `9dd5ae8`), and the loading-state skeleton/pulse styling (commit `9fad20c`).
+- [x] **(Discovered during QA of the above, not originally scoped)** Fix SAVE-1 (High): `saveCurrent()` could persist `translations` entries still in their `{status:'loading'}` shape once progressive rendering (above) began assigning `state.analysis` before translations resolved, producing a permanently stuck, unrecoverable "번역 중…" row if the study set was reopened. Fixed by blocking `saveCurrent()` while any translation is still loading; independently re-verified resolved. — commit `a86f8e0`
+- [x] Backward compatibility: `loadSaved()` now defaults any translation entry missing a `status` field (i.e., study sets saved before this milestone) to `'success'` in memory, without rewriting the underlying saved data. — commit `77b82ac`
+
+Exit criteria: met. Any arbitrary English passage (not just the sample) now produces either a real translation (MyMemory → Lingva → phrase-map fallback chain) or an honest, clearly-marked failure state with a retry option — never the old misleading canned string. Verified against all 5 acceptance criteria in `docs/milestones/milestone-02/01-PM-SPEC.md`, independently re-checked by Principal Review against the final integrated code — see `docs/milestones/milestone-02/05-REVIEW-REPORT.md`.
+
+Verification method: same as Milestone 1 — no automated test framework exists in this repo, so each of the 8 Developer Tasks (plus the SAVE-1 fix) was independently verified with freshly-authored, throwaway jsdom scripts by both the Senior Developer (self-test) and an independent QA pass, per `.ai-company/TESTING_STANDARDS.md`. Full QA history for all 8 tasks plus the SAVE-1 fix is recorded in `docs/milestones/milestone-02/04-QA-REPORT.md` (all PASS, no unresolved Critical/High/Medium defects).
+
+**Release status:** Development, QA, and a first Principal Review pass are complete. Release
+packaging and the CEO push-approval gate have not yet occurred — this milestone has not been pushed.
+See `docs/milestones/milestone-02/05-REVIEW-REPORT.md` for the current gate status.
+
+## Milestone 3 — Dictionary Upgrade
+
+Goal: replace the ~40-word hardcoded dictionary and grade-level heuristics with a scalable vocabulary source.
+
+- Integrate a real dictionary data source (API or a substantially larger local word list) to replace `dictionary`, `ipaMap`, and `exampleBank`.
+- Replace the length-based grade-level heuristic (`levelFor`) with a defensible frequency/CEFR-based leveling approach.
+- Replace `fallbackKoreanGloss`'s suffix-guessing with real lookups where possible; keep a labeled heuristic fallback only as a last resort.
+- Ensure vocabulary and IPA lookups scale to arbitrary passages without visibly degrading to "no data" for common academic words.
+
+Exit criteria: vocabulary tab produces real, sourced definitions for a representative set of test passages outside the current dictionary's coverage.
+
+## Milestone 4 — UI Improvements
+
+Goal: address usability gaps surfaced in the review, without changing underlying analysis logic.
+
+- Add a proper loading indicator during analysis (beyond the status text line).
+- Improve error/empty states across tabs (translation failure, empty vocab, no saved items) for clarity.
+- Review responsive layout at additional breakpoints (mobile widths below current 980px handling).
+- Add basic accessibility pass: focus states, ARIA labeling for tabs/drawer, keyboard navigation for the tab bar.
+- Visual polish pass on spacing/typography consistency across tabs.
+
+Exit criteria: usability issues from the review are resolved; no analysis/feature logic changes.
+
+## Milestone 5 — AI Tutor
+
+Goal: replace the templated, hardcoded "analysis" (grammar insights, SAT question generation) with genuine AI-generated content, addressing the gap between the README's "AI Explanation" claim and current template-based logic.
+
+- Design an API integration for real grammar explanation generation (replacing the two hardcoded sample-passage regexes and generic pattern fallback in `grammarInsights()`).
+- Design an API integration for genuine, passage-grounded SAT question generation (replacing the fixed 10-template bank in `makeQuestions()`).
+- Define cost/rate-limit handling and a graceful fallback if the AI service is unavailable.
+- Add clear labeling so users understand what is AI-generated vs. static reference content (dictionary links, phrase bank).
+
+Exit criteria: grammar notes and SAT questions are generated from the actual input passage's content rather than fixed templates, for arbitrary passages.
+
+## Milestone 6 — User Accounts
+
+Goal: move beyond single-browser `localStorage` persistence.
+
+- Design authentication (sign-up/login) and decide on provider (self-hosted vs. third-party auth).
+- Design a backend data model for users and their saved study sets, replacing/augmenting `localStorage`.
+- Migrate save/load/search/delete flows to the account-backed store, with a migration path for existing local data.
+- Add basic account settings (profile, sign-out, data export/delete for privacy compliance).
+
+Exit criteria: a user can log in from a different device/browser and see their saved study sets.
+
+## Milestone 7 — Study History
+
+Goal: turn quiz results and study activity into tracked progress, dependent on accounts from Milestone 6.
+
+- Persist SAT quiz scores per attempt, linked to the study set and user.
+- Add a history/progress view (score trends over time, per-passage performance).
+- Add vocabulary review tracking (e.g., words marked difficult, spaced-repetition-style resurfacing).
+- Add export of history/progress data (CSV at minimum).
+
+Exit criteria: a returning user can see their past quiz scores and vocabulary progress, not just their saved passages.
+
+## Milestone 8 — Deployment
+
+Goal: move from a manually-opened static file to a properly hosted, reliably reachable application.
+
+- Stand up a minimal build/serve pipeline (static hosting for frontend; hosting for any backend introduced in Milestones 6–7).
+- Serve over HTTPS to ensure `getUserMedia` (mic recording) and `SpeechRecognition` work reliably (currently at risk under `file://`).
+- Add environment configuration for API keys (translation, dictionary, AI tutor) rather than embedding logic client-side where relevant.
+- Set up basic CI (lint/build check) and a deployment process (e.g., GitHub Actions to a static host).
+- Update README with live URL, setup instructions, and environment variable requirements.
+
+Exit criteria: the app is reachable via a stable URL over HTTPS, with all features (including mic-dependent ones) functioning as expected for end users.
+
+---
+
+## Sequencing Notes
+
+- Milestones 1–4 depend only on the current codebase and can proceed in order without external services.
+- Milestone 5 (AI Tutor) can be developed in parallel with 6/7 design work but should land before 6/7 if possible, since account-backed history is more valuable once question/grammar quality is real.
+- Milestone 6 (User Accounts) is a prerequisite for Milestone 7 (Study History).
+- Milestone 8 (Deployment) should happen incrementally where possible (e.g., deploy after Milestone 1 so bug fixes reach users quickly) rather than being held until the very end, but is listed last as the milestone that formalizes and hardens the full deployment story.

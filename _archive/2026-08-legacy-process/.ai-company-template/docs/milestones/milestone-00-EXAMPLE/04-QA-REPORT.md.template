@@ -1,0 +1,39 @@
+# 04-QA-REPORT.md — Milestone {{N}} — {{Title}}
+
+Used in both modes. FULL mode: full report per iteration below. LIGHT mode: compact checklist —
+see the LIGHT template further down. Never overwrite a prior iteration — append.
+
+---
+
+## FULL-mode iteration (repeat per QA pass)
+
+### Iteration {{n}} — {{date}} — {{QA Engineer}}
+
+Acceptance criteria (from `01-PM-SPEC.md`):
+
+| # | Criterion | Result | Defect ID | Severity |
+|---|---|---|---|---|
+| 1 | {{criterion}} | Pass/Fail | {{ID or —}} | {{Critical/High/Medium/Low or —}} |
+
+Regression check: {{adjacent features tested, results}}
+
+Defects (if any):
+- **{{ID}}** ({{severity}}) — {{description}}. Repro: {{steps}}. Introduced/fixed by: {{commit}}.
+
+### Handoff
+
+<!-- See .ai-company/HANDOFF_PROTOCOL.md for the required fields. -->
+
+---
+
+## LIGHT-mode compact iteration (repeat per QA pass)
+
+```
+Iteration: {{n}} — {{date}} — {{QA Engineer}}
+Criteria (from LIGHT_CONTEXT.md):
+  1. {{criterion}} — Pass/Fail
+  2. ...
+Regression: {{one line}}
+Defects: none | {{ID}} ({{severity}}) — {{one line}}
+Escalation trigger fired: no | yes — {{which one, per MODE_SELECTION.md}}
+```

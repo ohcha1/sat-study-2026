@@ -1,0 +1,38 @@
+# 01-PM-SPEC.md — Milestone {{N}} — {{Title}}
+
+**FULL mode only.** See `.ai-company/PM.md` for what belongs in each section.
+
+Status: DRAFT
+
+## Milestone goal
+
+{{one paragraph, plain language}}
+
+## In scope
+
+1. {{specific, testable item}}
+2. ...
+
+## Out of scope
+
+- {{adjacent thing this milestone does NOT cover}}
+- ...
+
+## Acceptance criteria
+
+1. {{testable statement — "given X input, the system does Y, verifiable by Z"}}
+2. ...
+
+## Open questions
+
+- {{anything unresolved from the CEO request or repository state — flagged, not guessed at}}
+
+## Status
+
+DRAFT
+
+<!-- On CEO approval, change to: APPROVED — <date> — <one-line note if any> -->
+
+## Handoff
+
+<!-- See .ai-company/HANDOFF_PROTOCOL.md for the required fields. -->
