@@ -63,6 +63,42 @@ project is meant to be worked on.
     while the built-in simple sample passage still correctly shows its one basic connector
     (`in contrast`) as low-priority `core`.
 
+- **Content-quality review across vocab/examples/phrases/grammar/SAT questions, plus two real
+  SAT-question bugs fixed.** Ran real SAT-register test passages through every tab to check
+  quality, not just the built-in demo. Findings: grammar detection is already solid (correctly
+  found 6 distinct structures — passive, reduced clause, correlative conjunction, relative
+  clause, etc. — in one test passage, all correctly labeled). Vocab/examples are held back by a
+  narrow dictionary (~1,115 words total across `dictionary`+`supplementalVocab`+
+  `broadVocabLexicon` — the older "~40 words" note below was wrong, but even ~1,115 isn't enough:
+  8 of 12 words in a real geology-passage test fell through to the generic "estimated" fallback).
+  SAT question generation had the most serious issues, now fixed:
+  - **Vocabulary-in-Context question coverage.** This question type only fires for words with a
+    hand-curated 3-distractor set in `QG_VOCAB_DISTRACTORS`, and only 11 words had one — so this
+    classic SAT question type essentially never appeared on a real, non-demo passage. Added 87
+    more curated entries (98 total) for genuinely high-value SAT vocabulary already present in
+    `dictionary` (empirical, plausible, infer/imply, correlation/causation, scrutinize,
+    ubiquitous, etc.), each with 3 deliberately-plausible-but-wrong distractors grounded in the
+    word's actual meaning. Verified: went from 0/3 to 2/3 real test passages producing a
+    vocabulary question.
+  - **Inference/Comparison/Author's-Purpose questions could produce grammatically broken answer
+    choices.** Root cause: the shared contrast-detection regex matched the "but" inside "not
+    only X but also Y" (an additive construction, not a contrast), so a sentence containing that
+    correlative got mis-split into two clause fragments and rewoven into run-on, ungrammatical
+    answer choices. Added `qgRealContrastMatch()` to skip that false match and find a genuine
+    contrast marker (or correctly find none). Also found and fixed two related bugs while
+    tracking this down: `qgLooksLikeBareParticipial()` failed to catch a reduced clause when a
+    short adverb ("still being rejected...") preceded the participle, and separately wrongly
+    treated "being"/"been" as proof of a finite verb; and `genCauseEffect()` didn't strip its own
+    matched connective ("led to") from the extracted clause, producing doubled phrasing like
+    "leads to led to the development of...". All three verified fixed against the exact test
+    sentences that originally exposed them, with zero regressions in the review-deck and phrase
+    smoke tests.
+  - Also fixed, while testing vocab quality directly: the POS-guessing heuristic added earlier
+    this session mis-tagged common participial adjectives (`interesting`, `unsupported`) as
+    verbs, and 3rd-person-singular verbs ending in "s" (`illustrates`) as plural nouns. Added an
+    explicit adjective-override list and a dedicated `verbs3s` category, checked before the
+    generic "ends in s → plural noun" guess.
+
 ## Next priorities (roughly in order)
 
 1. **Manual word/phrase entry.** Right now the only way to add something to the review deck is
@@ -75,9 +111,13 @@ project is meant to be worked on.
 3. **"AI Explanation" honesty gap.** The explanation feature is currently template/heuristic
    based, not a real LLM call, despite the name. Either rename it to be honest about what it is,
    or wire it to a real model call if that's worth the cost/complexity for a personal tool.
-4. **Vocabulary dictionary is small (~40 hardcoded words).** Decide whether to keep growing it by
-   hand or switch to a lookup approach (e.g. an API or a bundled larger wordlist) once the review
-   deck itself is solid.
+4. **Vocabulary dictionary coverage is still the main bottleneck (in progress).** ~1,115 words
+   across `dictionary`+`supplementalVocab`+`broadVocabLexicon` sounds like a lot, but real
+   passages still turn up ordinary words with no entry (8 of 12 in one real test passage), which
+   fall through to the generic "estimated" fallback for definition, Korean gloss, and example
+   sentence alike. This is the throughline behind most of the remaining thinness in vocab,
+   examples, and SAT vocabulary questions — worth tackling next, either by hand-expanding the
+   curated lists or by switching to a lookup approach (e.g. an API or a bundled larger wordlist).
 5. **Deployment beyond `file://`.** This is a single HTML file with no build step, which is great
    for iterating, but it currently only runs opened locally. Worth deciding later whether/how to
    host it (even something as simple as static hosting) once the core loop is trustworthy.

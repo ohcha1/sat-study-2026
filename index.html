@@ -2331,10 +2331,44 @@ function englishOnly(s,fallback="The passage provides relevant evidence for its 
 // question type. See QG_PRIORITY for the CEO's required type-priority order.
 const QG_CAUSE_RE=/\b(because|since|as a result(?:\s+of)?|therefore|thus|consequently|due to|leads? to|led to|causes?|caused|results?\s+in|resulted in|so that|hence)\b/i;
 const QG_CONTRAST_RE=/\b(however|but|although|though|while|in contrast|on the other hand|despite|in spite of|yet|unlike|nevertheless|nonetheless|whereas)\b/i;
+// A sentence containing "not only X but also Y" (or "not just X but Y too") matches
+// QG_CONTRAST_RE on "but" even though the construction is additive/reinforcing, not
+// contrastive -- "not only confirmed the theory but also explained earthquakes" states two
+// things that are BOTH true together, the opposite of a contrast. Left unguarded, every
+// contrast-driven question generator (Inference, Comparison/Contrast, Text Structure,
+// Author's Purpose) would treat that "but" as a real contrast marker, split the sentence
+// there, and rebuild it into a garbled, ungrammatical answer choice. qgRealContrastMatch
+// returns the genuine contrast match if one exists (even in a sentence that ALSO contains a
+// "not only ... but also"), or null if the only match found was this false positive.
+const QG_CORRELATIVE_BUT_RE=/\bnot\s+(?:only|just)\b[\s\S]{1,80}?\bbut\b\s*(?:also\s+)?/i;
+function qgRealContrastMatch(s){
+ const text=String(s||"");
+ let search=text;
+ let offset=0;
+ while(true){
+  const m=search.match(QG_CONTRAST_RE);
+  if(!m) return null;
+  const absoluteIndex=offset+m.index;
+  if(m[0].toLowerCase()==="but"){
+   const corr=text.match(QG_CORRELATIVE_BUT_RE);
+   if(corr){
+    const corrStart=corr.index,corrEnd=corr.index+corr[0].length;
+    if(absoluteIndex>=corrStart&&absoluteIndex<corrEnd){
+     // this "but" is the one inside "not only ... but also" -- skip past it and keep
+     // looking for a genuine, separate contrast marker later in the sentence.
+     offset=corrEnd;
+     search=text.slice(offset);
+     continue;
+    }
+   }
+  }
+  return {0:m[0],index:absoluteIndex};
+ }
+}
 const QG_EXAMPLE_RE=/\b(for example|for instance|such as|including|like)\b/i;
 const QG_CONCLUSION_RE=/\b(in conclusion|overall|ultimately|in summary|in short)\b/i;
 const QG_HEDGE_RE=/\b(may|might|could|suggest|suggests|implies|likely|possibly|perhaps|indicates|appears to|seems to)\b/i;
-const QG_LEAD_RE=/^(However|But|Although|Though|While|In contrast|On the other hand|Despite|In spite of|Yet|Unlike|Nevertheless|Nonetheless|Whereas|For example|For instance|Such as|Moreover|Furthermore|In addition|Additionally|Also|Therefore|Thus|Consequently|As a result(?:\s+of\s+\w+)?|Since|Because|Hence|In conclusion|Overall|Ultimately|In summary|In short|And|So)[,]?\s+/i;
+const QG_LEAD_RE=/^(However|But|Although|Though|While|In contrast|On the other hand|Despite|In spite of|Yet|Unlike|Nevertheless|Nonetheless|Whereas|For example|For instance|Such as|Moreover|Furthermore|In addition|Additionally|Also|Therefore|Thus|Consequently|As a result(?:\s+of\s+\w+)?|Since|Because|Hence|In conclusion|Overall|Ultimately|In summary|In short|And|So|Led to|Leads to|Causes?|Caused|Results?\s+in|Resulted\s+in|Due to|So that)[,]?\s+/i;
 // sentence-initial transition -> logical category, used only for the conditional
 // "Transition" question type (fires only when the passage actually opens a sentence
 // with one of these words).
@@ -2417,7 +2451,7 @@ function qgSignals(sents){
  const cause=[],contrast=[],example=[],conclusion=[],hedge=[],transitionInit=[];
  sents.forEach((s,i)=>{
    if(QG_CAUSE_RE.test(s)) cause.push(i);
-   if(QG_CONTRAST_RE.test(s)) contrast.push(i);
+   if(qgRealContrastMatch(s)) contrast.push(i);
    if(QG_EXAMPLE_RE.test(s)) example.push(i);
    if(QG_CONCLUSION_RE.test(s)) conclusion.push(i);
    if(QG_HEDGE_RE.test(s)) hedge.push(i);
@@ -2553,7 +2587,9 @@ function qgSafeCauseMatch(s){
 function qgSafeContrastMatch(s){
  // QG_CONTRAST_RE's "yet" is ambiguous: contrastive ("small yet powerful") vs. purely
  // temporal ("has not yet been scheduled"). Reject the temporal reading locally.
- const m=s.match(QG_CONTRAST_RE);
+ // Also routes through qgRealContrastMatch so a "but" inside "not only ... but also" is
+ // never treated as a genuine contrast marker (see qgRealContrastMatch for why).
+ const m=qgRealContrastMatch(s);
  if(!m) return null;
  if(m[0].toLowerCase()==="yet"){
   const pre=s.slice(0,m.index);
@@ -2599,8 +2635,18 @@ function qgClausePairFrom(s,m){
  return {before,after};
 }
 function qgLooksLikeBareParticipial(clause){
- if(!/^[a-z]+ing\b/i.test(String(clause||""))) return false;
- return !/\b(?:is|are|was|were|am|be|been|being|has|have|had|will|would|shall|should|can|could|may|might|must|do|does|did)\b/i.test(clause);
+ const c=String(clause||"").trim();
+ // A short adverb (still, yet, also, even, once, already, long, always, never, now,
+ // further, thereby) often precedes a reduced participial with the subject omitted
+ // ("while still being rejected for decades...") -- strip at most one before checking
+ // whether what's left is a bare participial opener.
+ const stripped=c.replace(/^(?:still|yet|also|even|once|already|long|always|never|now|today|further|thereby)\s+/i,"");
+ if(!/^[a-z]+ing\b/i.test(stripped)) return false;
+ // "being" and "been" are themselves non-finite (present/past participle of "be") -- their
+ // presence does NOT establish that the clause has a real finite verb, so they're excluded
+ // from this allowlist. Only a genuine finite auxiliary/modal (is/was/has/had/will/etc.)
+ // elsewhere in the clause counts as proof this isn't a bare participial phrase.
+ return !/\b(?:is|are|was|were|am|has|have|had|will|would|shall|should|can|could|may|might|must|do|does|did)\b/i.test(c);
 }
 // #16A.1: A rule-based generator can't semantically re-derive a completely novel
 // sentence per passage, so every Inference candidate here is built from a small set of
@@ -2900,6 +2946,441 @@ const QG_VOCAB_DISTRACTORS={
   "large in physical size or volume compared with similar things",
   "occurring frequently or on a regular, repeated basis",
   "officially approved by a recognized governing authority"
+ ],
+ ambiguous:[
+  "completely false and impossible to believe",
+  "stated with unusual force and confidence",
+  "difficult to pronounce correctly"
+ ],
+ corroborate:[
+  "to invent a false account of an event",
+  "to translate a statement into another language",
+  "to formally withdraw an earlier claim"
+ ],
+ mitigate:[
+  "to completely eliminate a problem so it never recurs",
+  "to investigate the underlying cause of a problem",
+  "to make a difficult situation noticeably worse"
+ ],
+ prevalent:[
+  "occurring only in a single isolated location",
+  "considered the most important among several options",
+  "no longer occurring after having been common in the past"
+ ],
+ nuanced:[
+  "stated in the simplest terms possible for beginners",
+  "based on a single, one-sided point of view",
+  "expressed using highly technical, specialized vocabulary"
+ ],
+ empirical:[
+  "based purely on abstract theory without real-world testing",
+  "accepted as true simply because an expert stated it",
+  "impossible to verify using any scientific method"
+ ],
+ plausible:[
+  "proven beyond any possible doubt",
+  "obviously false to any careful reader",
+  "supported by an overwhelming amount of direct evidence"
+ ],
+ undermine:[
+  "to build upon and further strengthen an existing idea",
+  "to openly and directly criticize a person's character",
+  "to secretly copy someone else's original work"
+ ],
+ ubiquitous:[
+  "found only among a small, specialized group of experts",
+  "appearing suddenly for a brief moment before disappearing",
+  "considered old-fashioned and no longer relevant"
+ ],
+ infer:[
+  "to state a fact directly and explicitly in writing",
+  "to guess randomly without considering any evidence",
+  "to communicate a hidden meaning to someone else"
+ ],
+ substantiate:[
+  "to state an opinion without offering any support",
+  "to shorten a lengthy argument into a brief summary",
+  "to formally withdraw a claim after it is challenged"
+ ],
+ refute:[
+  "to politely disagree without offering any counter-evidence",
+  "to restate someone else's argument in your own words",
+  "to reluctantly agree with a claim after resisting it"
+ ],
+ justify:[
+  "to make a formal accusation against someone",
+  "to apologize for an action that caused harm",
+  "to keep a decision secret from those affected by it"
+ ],
+ validate:[
+  "to create something entirely new that did not exist before",
+  "to challenge an idea by pointing out its flaws",
+  "to slightly modify an existing plan to improve it"
+ ],
+ contend:[
+  "to remain silent rather than take a position",
+  "to quietly accept a claim without questioning it",
+  "to keep a personal opinion completely private"
+ ],
+ dispute:[
+  "to formally publish results in an academic journal",
+  "to reluctantly accept a claim as accurate",
+  "to briefly mention a topic without further elaboration"
+ ],
+ concede:[
+  "to defeat an opponent decisively in an argument",
+  "to bring up an entirely new point in a debate",
+  "to keep arguing a position despite strong opposition"
+ ],
+ rebut:[
+  "to formally accept an accusation as accurate",
+  "to summarize both sides of a debate neutrally",
+  "to introduce a claim for the very first time"
+ ],
+ warrant:[
+  "to formally forbid a particular action from taking place",
+  "to guarantee that a specific outcome will occur",
+  "to record an action for future reference only"
+ ],
+ correlation:[
+  "a proven cause-and-effect relationship between two things",
+  "a complete absence of any relationship between two things",
+  "a single isolated data point unlike the rest of a set"
+ ],
+ causation:[
+  "a relationship in which two things merely tend to occur together",
+  "an estimate based on incomplete or limited data",
+  "a coincidence that has no real explanation"
+ ],
+ methodology:[
+  "the final conclusion reached at the end of a study",
+  "a single specific tool used for one narrow task",
+  "an unproven theory that has not yet been tested"
+ ],
+ anomaly:[
+  "the typical or average case within a large data set",
+  "an error caused specifically by faulty measurement equipment",
+  "a pattern that repeats consistently across many trials"
+ ],
+ catalyst:[
+  "a person who resists and blocks needed change",
+  "a chemical substance used only in laboratory settings",
+  "the final result produced at the end of a process"
+ ],
+ equilibrium:[
+  "a sudden and dramatic shift away from a stable state",
+  "the strongest of two competing forces in a system",
+  "a brief pause that occurs just before further change resumes"
+ ],
+ phenomenon:[
+  "a theory that has never been tested or observed",
+  "a common and unremarkable everyday occurrence",
+  "an explanation proposed for why something occurs"
+ ],
+ precedent:[
+  "a rule that has never actually been applied in practice",
+  "the very first case of its kind, with no earlier examples to draw on",
+  "a decision that will certainly be reversed in the future"
+ ],
+ autonomy:[
+  "complete isolation from all other groups or individuals",
+  "the ability to make decisions only with prior approval from others",
+  "a formal document granting official permission"
+ ],
+ hierarchy:[
+  "a group in which every member has completely equal status",
+  "a temporary team assembled for a single short-term project",
+  "a list of items arranged in the order they were created"
+ ],
+ legislation:[
+  "a court ruling that interprets an existing law",
+  "an informal agreement that is not legally binding",
+  "the enforcement of laws that have already been passed"
+ ],
+ protagonist:[
+  "the character who directly opposes the main character",
+  "a minor character who appears only briefly",
+  "the narrator's own personal opinion within a story"
+ ],
+ allegory:[
+  "a story told entirely through exaggeration for comic effect",
+  "a brief comparison using 'like' or 'as'",
+  "a factual account with no symbolic meaning at all"
+ ],
+ irony:[
+  "a direct and literal statement with no hidden meaning",
+  "exaggeration used deliberately to emphasize a point",
+  "a harsh, mocking tone aimed at insulting someone"
+ ],
+ metaphor:[
+  "a comparison that explicitly uses 'like' or 'as'",
+  "the literal, dictionary definition of a word",
+  "a word that imitates the sound it describes"
+ ],
+ motif:[
+  "the single most dramatic moment in a story",
+  "an event that appears only once in a story",
+  "the underlying moral lesson of a story"
+ ],
+ foreshadowing:[
+  "a description of events that already happened in the past",
+  "a direct statement revealing exactly what will happen next",
+  "a summary of the story's events placed at the very end"
+ ],
+ satire:[
+  "writing that praises a person or institution without criticism",
+  "a formal, serious essay written to persuade readers",
+  "a brief humorous story with no larger critical purpose"
+ ],
+ symbolism:[
+  "the literal, surface-level description of an object",
+  "a direct comparison stated using 'like' or 'as'",
+  "the historical background information behind a story"
+ ],
+ bias:[
+  "a balanced view that fairly considers all sides equally",
+  "a factual error caused by a mistake in calculation",
+  "a strong opinion that is stated openly and admitted"
+ ],
+ synthesis:[
+  "the process of breaking a complex whole into its separate parts",
+  "a brief summary that omits most supporting details",
+  "the single original source from which all others are copied"
+ ],
+ consequence:[
+  "the original cause that sets a chain of events in motion",
+  "an action taken specifically to prevent a future problem",
+  "a minor detail that has no real impact on an outcome"
+ ],
+ repercussion:[
+  "an immediate and clearly intended result of an action",
+  "a positive outcome that was carefully planned in advance",
+  "the very first step taken at the start of a process"
+ ],
+ induce:[
+  "to forcefully prevent a condition from ever occurring",
+  "to reach a conclusion using pure logical deduction",
+  "to gradually reduce the severity of an existing condition"
+ ],
+ precipitate:[
+  "to slow down a process that was moving too quickly",
+  "to predict an event long before any signs of it appear",
+  "to record precise measurements during an experiment"
+ ],
+ catalyze:[
+  "to bring a process to a complete stop",
+  "to observe a process without altering its course",
+  "to repeat an experiment multiple times for accuracy"
+ ],
+ analogous:[
+  "identical in every respect, with no meaningful differences",
+  "completely unrelated and impossible to meaningfully compare",
+  "arranged in chronological order from earliest to latest"
+ ],
+ disparate:[
+  "closely similar in nature despite minor differences",
+  "arranged from least important to most important",
+  "occurring only within a single narrow category"
+ ],
+ comparable:[
+  "so unique that no meaningful comparison is possible",
+  "identical in every measurable respect",
+  "ranked as clearly superior to all available alternatives"
+ ],
+ divergent:[
+  "converging toward a single shared outcome over time",
+  "remaining exactly the same without any change",
+  "occurring only once, with no ongoing development"
+ ],
+ differentiate:[
+  "to combine two or more things into a single unified whole",
+  "to rank multiple items from best to worst",
+  "to repeat the same process multiple times"
+ ],
+ juxtapose:[
+  "to combine two elements so thoroughly they become indistinguishable",
+  "to remove one element entirely in favor of another",
+  "to arrange items strictly in chronological order"
+ ],
+ imply:[
+  "to state a conclusion directly and explicitly",
+  "to reach a conclusion after carefully considering the evidence",
+  "to repeat exactly what another person has already said"
+ ],
+ deduce:[
+  "to guess without any supporting facts or reasoning",
+  "to state a fact that is already obvious to everyone",
+  "to collect raw data before any analysis begins"
+ ],
+ presume:[
+  "to confirm something is true only after rigorous testing",
+  "to openly doubt a claim that others believe",
+  "to formally announce a decision after long deliberation"
+ ],
+ speculate:[
+  "to state a fact that has already been thoroughly proven",
+  "to carefully document firsthand observations",
+  "to repeat a rumor without forming any personal opinion about it"
+ ],
+ discern:[
+  "to overlook or completely fail to notice something",
+  "to state an opinion loudly and publicly",
+  "to create something that did not exist before"
+ ],
+ glean:[
+  "to invent information that has no real source",
+  "to publish original findings for the first time",
+  "to reject information from sources considered unreliable"
+ ],
+ surmise:[
+  "to prove a claim using complete and certain evidence",
+  "to state a well-established scientific law",
+  "to formally test a hypothesis through a controlled experiment"
+ ],
+ extrapolate:[
+  "to collect entirely new data through direct observation",
+  "to summarize only the data that has already been measured",
+  "to disregard existing data in favor of a fresh assumption"
+ ],
+ dissect:[
+  "to summarize something briefly without close examination",
+  "to physically repair or reconstruct a damaged object",
+  "to reject an argument without considering its details"
+ ],
+ scrutinize:[
+  "to glance at something briefly without much attention",
+  "to praise something without pointing out any flaws",
+  "to organize items neatly according to a fixed system"
+ ],
+ elucidate:[
+  "to intentionally make an explanation more confusing",
+  "to shorten a long explanation into a brief summary",
+  "to translate a text into a different language"
+ ],
+ interpret:[
+  "to record information exactly as it was originally stated",
+  "to create entirely new information with no prior source",
+  "to translate spoken words in real time only"
+ ],
+ evaluate:[
+  "to describe something without forming any judgment about it",
+  "to record raw data before any analysis takes place",
+  "to guess at a value without considering any evidence"
+ ],
+ assess:[
+  "to ignore the quality of something entirely",
+  "to permanently fix a value so it can never be reconsidered",
+  "to state a fact with no judgment of its worth involved"
+ ],
+ criterion:[
+  "the final outcome produced by a completed process",
+  "a random or arbitrary factor with no real significance",
+  "an example used to illustrate a general point"
+ ],
+ benchmark:[
+  "the very best possible outcome that could ever be achieved",
+  "a temporary rule that applies only once",
+  "a random data point with no comparative value"
+ ],
+ merit:[
+  "a flaw or weakness found within an otherwise good plan",
+  "a formal reward given regardless of actual quality",
+  "the total number of points scored in a competition"
+ ],
+ validity:[
+  "the popularity of an idea among the general public",
+  "the length of time an argument has been accepted as true",
+  "the emotional appeal an argument has on its audience"
+ ],
+ credibility:[
+  "the total amount of money or resources someone controls",
+  "the level of formal education a person has completed",
+  "the popularity of a person among their peers"
+ ],
+ feasibility:[
+  "the total cost required to complete a project",
+  "the level of enthusiasm a team has for a project",
+  "the certainty that a plan will succeed without any risk"
+ ],
+ efficacy:[
+  "the speed at which a result is produced",
+  "the financial cost of achieving a particular result",
+  "the popularity of a treatment or method among its users"
+ ],
+ viability:[
+  "the visual appearance or attractiveness of something",
+  "the immediate profitability of a plan in its very first year",
+  "the popularity of an idea when it is first proposed"
+ ],
+ aggregate:[
+  "a single individual case studied in isolation",
+  "the average or typical value within a data set",
+  "a data point that differs sharply from the rest"
+ ],
+ outlier:[
+  "the average value calculated across an entire data set",
+  "the single most common value appearing in a data set",
+  "a data point that closely matches the overall pattern"
+ ],
+ variance:[
+  "complete uniformity with no differences at all",
+  "the average of all values within a data set",
+  "a single unexplained error in an experiment"
+ ],
+ threshold:[
+  "the highest possible value that can ever be reached",
+  "the average value measured across many trials",
+  "a fixed rule that never changes under any circumstances"
+ ],
+ parameter:[
+  "the final conclusion reached after an analysis is complete",
+  "an error that occurs during data collection",
+  "a synonym for 'perimeter,' the outer edge of a shape"
+ ],
+ mandate:[
+  "a voluntary suggestion that carries no binding force",
+  "an informal request made between friends",
+  "a summary describing what already happened in the past"
+ ],
+ sustainability:[
+  "the maximum possible output a system can produce in one year",
+  "the total cost of maintaining a system over its lifetime",
+  "the rate at which a resource is currently being consumed"
+ ],
+ biodiversity:[
+  "the total number of individual organisms in one location, regardless of species",
+  "the process of restoring a damaged ecosystem",
+  "the geographic size of a protected natural area"
+ ],
+ renewable:[
+  "no longer able to be used once its supply runs out",
+  "produced using the newest available technology",
+  "significantly cheaper than all other available options"
+ ],
+ depletion:[
+  "the natural replenishment of a resource over time",
+  "the discovery of an entirely new resource",
+  "the equal distribution of a resource among users"
+ ],
+ inflation:[
+  "a temporary, one-time spike in the price of a single product",
+  "a sustained decrease in prices across an economy",
+  "an increase in the total amount of goods a country produces"
+ ],
+ deficit:[
+  "the amount by which income exceeds spending",
+  "the total value of all assets a government owns",
+  "a tax imposed on imported goods"
+ ],
+ incentive:[
+  "a penalty imposed to discourage a particular action",
+  "a formal rule that must be strictly obeyed",
+  "a random event with no connection to human behavior"
+ ],
+ tariff:[
+  "a subsidy paid by a government to support a domestic industry",
+  "a voluntary fee that importers may choose to pay",
+  "a complete ban on the import of a particular good"
  ]
 };
 
@@ -3099,8 +3580,8 @@ function genComparisonContrast(ctx){
  if(!avail.length) return null;
  const idx=avail[0];
  const s=sents[idx];
- const m=s.match(QG_CONTRAST_RE);
- const splitPos=m?s.search(QG_CONTRAST_RE):Math.floor(s.length/2);
+ const m=qgRealContrastMatch(s);
+ const splitPos=m?m.index:Math.floor(s.length/2);
  let before=qgClause(s.slice(0,splitPos),115);
  const after=qgClause(s.slice(splitPos),115);
  if(!before) before=qgClause(sents[Math.max(0,idx-1)],115);
