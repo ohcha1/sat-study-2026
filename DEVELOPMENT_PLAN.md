@@ -40,6 +40,29 @@ project is meant to be worked on.
     `-ous`, `-ly`) each routed to the matching POS template and appeared as a real verb/adjective/
     adverb in the generated sentence, not a quoted noun.
 
+- **숙어·구문 (idioms/phrases tab) level check.** Reviewed the phrase bank against actual SAT
+  difficulty. Finding: about 20 of the ~90 curated phrases (`in contrast`, `as a result`,
+  `according to`, `for instance`, `on the other hand`, etc.) are basic connectors a genuine
+  SAT-track student already knows, but they were untagged and therefore ranked as `"academic"`
+  — the same priority tier as genuinely harder phrases — so they could crowd out the harder ones
+  when a passage had more than the 8-phrase display cap worth of matches.
+  - Re-tagged those ~20 basic connectors as `"core"` (lowest ranking priority) and promoted
+    ~10 existing phrases that are genuinely higher-register (`be attributed to`,
+    `call into question`, `give rise to`, `stem from`, `in light of`, `regardless of`, etc.) to
+    `"sat-high-value"`.
+    - Added 19 new phrase-bank entries plus one new regex pattern, all `"sat-high-value"`,
+    covering constructions that actually appear in SAT Reading passages (especially historical
+    excerpts) and SAT Writing & Language idiom items but weren't covered before: inverted
+    conditionals (`were it not for`, `had it not been for`), inverted time clauses
+    (`no sooner ... had ... than`), and formal qualifiers/connectors (`let alone`, `far from`,
+    `by virtue of`, `on the grounds that`, `in the wake of`, `at odds with`, `to the extent that`,
+    and others).
+  - Verified with a Playwright test against a deliberately hard, SAT-register test passage: the
+    phrases tab now surfaces entirely `sat-high-value` constructions (`were it not for`,
+    `in the wake of`, `no sooner had ... than`, `to the extent that`, etc.) for a hard passage,
+    while the built-in simple sample passage still correctly shows its one basic connector
+    (`in contrast`) as low-priority `core`.
+
 ## Next priorities (roughly in order)
 
 1. **Manual word/phrase entry.** Right now the only way to add something to the review deck is
